@@ -1,4 +1,9 @@
 *.csv
+*.mp4
+
+# Large data files
+Mule-data/
+Mule/
 
 # Python
 __pycache__/
