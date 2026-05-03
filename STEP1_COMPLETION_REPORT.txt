@@ -1,0 +1,166 @@
+================================================================================
+STEP 2: DATA QUALITY CHECKS — COMPLETION REPORT
+================================================================================
+
+Date: 2026-05-03
+Status: ✅ COMPLETE
+Ready for Step 3: YES
+
+================================================================================
+EXECUTION SUMMARY
+================================================================================
+
+TASK 1: NULL/MISSING VALUE ANALYSIS ✓
+  - Master: 36 clean columns, 5 expected nulls, 10 unexpected nulls
+  - Transactions: All 5 critical columns (id, account_id, amount, timestamp, type) clean
+  - Mule vs Legit null patterns compared for all 14 columns with nulls
+
+TASK 2: DATE COLUMN VALIDATION ✓
+  - 8 date columns analyzed (range, outliers, logical consistency)
+  - 2 date issues found: opening<start (3,876), pre-opening txns (38,636)
+  - Account opening: 2015-2025 (10 years, peak 2023)
+  - Mule flagging: 2017-2026, mostly 2024-2025
+
+TASK 3: CATEGORICAL COLUMN VALIDATION ✓
+  - All Y/N flags valid (verified 17 columns)
+  - Account status: active/frozen (expected)
+  - Product family: S/K/O (expected)
+  - Transaction type: D/C (53.82% / 46.18%, expected)
+  - 35 transaction channels identified (all valid)
+  - 57 MCC codes (complete coverage, no nulls)
+
+TASK 4: NUMERIC COLUMN VALIDATION ✓
+  - 14 balance/loan/credit columns analyzed
+  - 8 major signals: avg_balance, monthly_avg, quarterly_avg, daily_avg, loan_sum, cc_sum, od_sum, ka_sum
+  - Balance outliers: Min -₹33.5M (negative), Max +₹181.7M
+  - Transactions: ₹1 to ₹144M (99.5% <₹100K)
+  - Large transactions: 120,961 (>100K), 2,505 (>1M)
+
+TASK 5: NO-TRANSACTION ACCOUNTS ✓
+  - 433 frozen accounts with zero transactions
+  - Higher mule rate: 1.89% vs 1.09% overall (+0.79pp)
+  - KYC compliant: 89.38% (as expected for frozen)
+  - Decision: KEEP with special flag (higher risk)
+
+TASK 6: REVERSAL TRANSACTION ANALYSIS ✓
+  - 36,527 reversals (0.49% of transactions)
+  - Top channels: UPC (39.14%), UPD (36%)
+  - Concentrated: 11,457 accounts, max 37 reversals/account
+  - Mean reversal: ₹8,792 (absolute value)
+  - Evenly distributed across 5-year window
+
+TASK 7: QUALITY REPORT & VISUALIZATIONS ✓
+  - Comprehensive markdown report generated (14 KB)
+  - 5 high-quality plots generated (276 KB total)
+    • Null heatmap
+    • Transaction amount distribution (log scale)
+    • Account opening date by year
+    • Balance: Mule vs Legitimate boxplot
+    • Y/N flag comparison
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+CLEAN SIGNALS (Ready to use as-is):
+  ✓ 36 columns with zero nulls
+  ✓ All critical transaction columns clean
+  ✓ Date ranges valid (2015-2025 accounts, 2020-2025 transactions)
+  ✓ Categorical distributions as expected
+
+ISSUES TO HANDLE:
+  ⚠️ 16,015 unlabeled accounts (40%) → REMOVE for supervised learning
+  ⚠️ 10 unexpected null columns → Handle via flags or imputation
+  ⚠️ 3,876 date logic errors → Flag separately
+  ⚠️ 38,636 pre-opening transactions → Create feature flag
+  ⚠️ Extreme balance outliers → Log-transform or cap
+  ⚠️ 36,527 reversals → Aggregate into separate features
+  ⚠️ 433 frozen/no-txn accounts → Flag as high-risk
+
+EARLY SIGNALS (Mule vs Legitimate):
+  🔍 flagged_by_branch: 100pp difference (LEAKAGE - exclude)
+  🔍 alert_reason: 92pp difference (LEAKAGE - exclude)
+  🔍 avg_balance: 79.8K difference in means (genuine signal)
+  🔍 aadhaar_available: 9.12pp difference (genuine signal)
+  🔍 rural_branch: 4.32pp difference (genuine signal)
+  🔍 cc_sum: 26.7K difference (genuine signal)
+  🔍 sa_count: 0.23 mean difference (genuine signal)
+  🔍 od_sum: 3.3K difference (genuine signal)
+
+================================================================================
+METRICS SUMMARY
+================================================================================
+
+Dataset Size:
+  - Master: 40,038 accounts
+  - Labeled: 24,023 (263 mule, 23,760 legitimate)
+  - Unlabeled: 16,015 (40%)
+  - Transactions: 7,424,845 records
+  - Date range: 5 years (2020-07-01 to 2025-07-11)
+
+Class Distribution (Labeled only):
+  - Mule: 263 (1.09%)
+  - Legitimate: 23,760 (98.91%)
+  - Imbalance ratio: 90.4:1
+
+Transaction Distribution:
+  - Normal (positive): 7,388,318 (99.51%)
+  - Reversals (negative): 36,527 (0.49%)
+  - Amount range: ₹1 to ₹144,034,000
+  - Median amount: ₹861.31
+
+Null Coverage:
+  - Completely clean columns: 36/50 (72%)
+  - Expected nulls: 5/50 (10%)
+  - Unexpected nulls: 10/50 (20%)
+
+================================================================================
+RECOMMENDATIONS FOR STEP 3 (EDA)
+================================================================================
+
+Data Preparation:
+  1. Filter to labeled accounts only (remove 16,015 nulls in is_mule)
+  2. Handle unexpected nulls:
+     - Create flags for: alert_reason, flagged_by_branch, aadhaar_available, pan_available
+     - Fill with 0: cc_sum, loan_sum, avg_balance, monthly_avg_balance (when null)
+     - Drop or fill: branch_pin, mule_flag_date post-cutoff
+  3. Log-transform amounts: log10(|amount| + 1)
+  4. Create feature flags for known issues:
+     - date_logic_error, pre_opening_transaction, frozen_no_transactions
+
+Features to Exclude (Data Leakage):
+  - flagged_by_branch
+  - alert_reason
+  - mule_flag_date
+
+Features to Aggregate from Transactions:
+  - reversal_count (by account)
+  - reversal_amount_sum (by account)
+  - transaction_count, amount_sum, amount_mean (by account)
+
+Class Imbalance Handling:
+  - Use stratified K-fold cross-validation
+  - Apply class weights: weight_mule ≈ 90.4x
+  - Metric focus: Precision-Recall AUC (not ROC-AUC)
+
+================================================================================
+OUTPUT FILES
+================================================================================
+
+Reports:
+  ✓ reports/STEP2_QUALITY_REPORT.md (14 KB) — Full detailed report
+
+Visualizations:
+  ✓ reports/step2_quality_plots/01_null_heatmap.png (141 KB)
+  ✓ reports/step2_quality_plots/02_txn_amount_distribution.png (32 KB)
+  ✓ reports/step2_quality_plots/03_account_opening_by_year.png (25 KB)
+  ✓ reports/step2_quality_plots/04_balance_mule_vs_legit.png (40 KB)
+  ✓ reports/step2_quality_plots/05_yn_flag_comparison.png (31 KB)
+
+================================================================================
+TOTAL ISSUES: 24
+WARNINGS: 13
+EARLY SIGNALS: 8
+
+✅ DATA QUALITY CHECKS COMPLETE — PROCEED TO STEP 3 (EDA)
+================================================================================
