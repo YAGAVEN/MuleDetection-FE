@@ -56,10 +56,7 @@ Thumbs.db
 *.joblib
 *.pickle
 
-# Generated features and models
-Mule-data/features/
-Mule-data/models/
+
 
 # Generated reports and submissions
-reports/
-submissions/
+
