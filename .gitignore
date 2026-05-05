@@ -1,11 +1,15 @@
+# ============================================================
+# LARGE DATA FILES (exclude only CSV and PKL files)
+# ============================================================
 *.csv
+*.pkl
+*.pickle
+*.joblib
 *.mp4
 
-# Large data files
-Mule-data/
-Mule/
-
-# Python
+# ============================================================
+# PYTHON & VIRTUAL ENVIRONMENTS
+# ============================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -29,34 +33,55 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+pip-log.txt
+pip-delete-this-directory.txt
 
-# IDE
+# ============================================================
+# IDE & EDITOR
+# ============================================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
+# ============================================================
 # OS
+# ============================================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Jupyter
+# ============================================================
+# JUPYTER NOTEBOOKS
+# ============================================================
 .ipynb_checkpoints/
 *.ipynb
 
-# Logs and temp files
+# ============================================================
+# LOGS & TEMP FILES
+# ============================================================
 *.log
 *.tmp
 *.temp
-*.csv
+*.bak
 
-# Model artifacts and data objects
-*.pkl
-*.joblib
-*.pickle
-
-
+# ============================================================
+# KEEP THESE FOLDERS & FILES (explicitly included)
+# ============================================================
+# ! - means "do NOT ignore"
+!Mule-data/
+!Mule-data/**/*.py
+!reports/
+!scripts/
+!prompts/
+!submissions/
 
 # Generated reports and submissions
 

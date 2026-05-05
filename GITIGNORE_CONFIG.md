@@ -1,0 +1,187 @@
+# Git Configuration Guide
+
+**File:** `.gitignore`
+**Status:** ✅ Configured for optimal GitHub push
+
+---
+
+## 🎯 Configuration Rules
+
+### ✅ WILL BE PUSHED TO GITHUB
+
+| Type | Examples |
+|------|----------|
+| **Python Scripts** | `*.py` (all except `__pycache__`) |
+| **Folders** | `Mule-data/`, `reports/`, `scripts/`, `prompts/`, `submissions/` |
+| **Config Files** | `.gitignore`, `README.md`, `requirements.txt` |
+| **Documentation** | `*.md`, `*.txt` (except logs) |
+| **Dependencies** | `requirements.txt`, `setup.py`, `Pipfile` |
+
+### ❌ WILL NOT BE PUSHED (IGNORED)
+
+| Type | Pattern | Reason |
+|------|---------|--------|
+| **Large Data Files** | `*.csv` | Data files (too large) |
+| **Serialized Models** | `*.pkl`, `*.pickle`, `*.joblib` | Model objects (too large) |
+| **Video Files** | `*.mp4` | Media files (too large) |
+| **Pycache** | `__pycache__/` | Generated Python cache |
+| **Virtual Env** | `venv/`, `env/`, `ENV/` | Dependencies (use requirements.txt) |
+| **IDE Settings** | `.vscode/`, `.idea/`, `*.swp` | User-specific settings |
+| **OS Files** | `.DS_Store`, `Thumbs.db` | OS-specific files |
+| **Notebooks** | `*.ipynb` | Jupyter notebooks |
+| **Logs** | `*.log`, `*.tmp` | Temporary files |
+| **Jupyter Cache** | `.ipynb_checkpoints/` | Generated cache |
+
+---
+
+## 📁 Directory Structure (What Gets Pushed)
+
+```
+your-repo/
+├── .gitignore                           ✅ PUSHED
+├── README.md                            ✅ PUSHED
+├── requirements.txt                     ✅ PUSHED
+│
+├── Mule-data/
+│   ├── eda_pipeline.py                  ✅ PUSHED
+│   ├── feature_extraction_pipeline.py   ✅ PUSHED
+│   ├── lightgbm_pipeline.py             ✅ PUSHED
+│   ├── features/
+│   │   ├── features_combined.csv        ❌ IGNORED (data file)
+│   │   └── features_summary.txt         ✅ PUSHED
+│   ├── models/
+│   │   ├── prep_data.pkl                ❌ IGNORED (model file)
+│   │   ├── baseline_results.pkl         ❌ IGNORED
+│   │   ├── tuned_results.pkl            ❌ IGNORED
+│   │   └── final_results.pkl            ❌ IGNORED
+│   └── gnn/
+│       ├── mule_gnn_pipeline.py         ✅ PUSHED
+│       ├── graph.pt                     ❌ IGNORED (model)
+│       ├── best_model.pt                ❌ IGNORED (model)
+│       ├── ensemble_predictions.csv     ❌ IGNORED (data)
+│       └── ensemble_results.pkl         ❌ IGNORED (model)
+│
+├── reports/
+│   ├── *.png                            ✅ PUSHED (if kept small)
+│   └── *.md                             ✅ PUSHED
+│
+├── prompts/
+│   ├── STEP1/                           ✅ PUSHED
+│   ├── STEP2/                           ✅ PUSHED
+│   ├── ... (all prompts)                ✅ PUSHED
+│   └── STEP6/                           ✅ PUSHED
+│
+├── scripts/                             ✅ PUSHED
+│   └── *.py                             ✅ PUSHED
+│
+└── venv/                                ❌ IGNORED (virtual environment)
+    └── (dependencies)
+```
+
+---
+
+## 🔧 How to Use
+
+### 1. **Create requirements.txt** (if not already present)
+```bash
+pip freeze > requirements.txt
+```
+
+### 2. **Initialize Git** (if not already done)
+```bash
+git init
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+```
+
+### 3. **Add Files**
+```bash
+git add .
+```
+This will add all files EXCEPT those in `.gitignore`
+
+### 4. **Check What Will Be Pushed**
+```bash
+git status
+```
+
+### 5. **Commit & Push**
+```bash
+git commit -m "Initial commit: ML pipelines"
+git branch -M main
+git remote add origin https://github.com/your-username/repo-name.git
+git push -u origin main
+```
+
+---
+
+## 📋 What Gets Pushed vs Ignored
+
+### Pushed to GitHub:
+- ✅ All `.py` Python scripts
+- ✅ All `.md` Markdown documentation
+- ✅ `requirements.txt` (for reproducibility)
+- ✅ All folder structures (Mule-data/, reports/, scripts/, prompts/)
+- ✅ Configuration files (`.gitignore`, etc.)
+
+### NOT Pushed (Ignored):
+- ❌ `.csv` files (data files - too large)
+- ❌ `.pkl`, `.pickle`, `.joblib` files (model serializations - too large)
+- ❌ `venv/` folder (virtual environment - recreate from requirements.txt)
+- ❌ `__pycache__/` (Python cache - auto-generated)
+- ❌ `.ipynb` (Jupyter notebooks - if any)
+- ❌ `.log`, `.tmp` files (temporary)
+
+---
+
+## 🛡️ Key Benefits
+
+1. **Smaller Repository** - Only essential files on GitHub
+2. **Clean Code** - No data pollution
+3. **Reproducibility** - requirements.txt ensures dependencies can be recreated
+4. **Security** - Sensitive data files not exposed
+5. **Better for Collaboration** - Easier to clone and work with
+
+---
+
+## ⚠️ Important Notes
+
+1. **Virtual Environment** - Not pushed, but easily recreated:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+2. **Data Files** - Can be regenerated by running pipelines or downloaded separately
+
+3. **Model Files** - Can be stored separately using:
+   - Git LFS (Large File Storage)
+   - Cloud storage (AWS S3, Google Cloud Storage)
+   - Model registry (MLflow, Weights & Biases)
+
+4. **CSV Files** - If you need to include specific CSVs, you can override:
+   ```bash
+   # To force-add a specific CSV
+   git add Mule-data/specific_file.csv -f
+   ```
+
+---
+
+## 🔍 Verify Configuration
+
+Check which files will be tracked:
+```bash
+git ls-files
+```
+
+Check which files are ignored:
+```bash
+git check-ignore -v *
+```
+
+---
+
+**Status:** ✅ Ready for GitHub push
+**Repository Size:** Small & efficient
+**Dependencies:** Easily reproducible via requirements.txt
