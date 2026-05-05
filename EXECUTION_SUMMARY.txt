@@ -1,0 +1,222 @@
+================================================================================
+MULE DETECTION - COMBINED PIPELINES EXTRACTION SUMMARY
+================================================================================
+
+Generated: 2025-05-05
+Source: prompts/ folder (STEP2, STEP3, STEP4, STEP5, STEP6)
+
+================================================================================
+FILES CREATED
+================================================================================
+
+1. EDA Pipeline
+   📄 File: Mule-data/eda_pipeline.py
+   📊 Lines: 386
+   📝 Description: Exploratory Data Analysis & Data Quality Checks
+   
+   Extracts from: STEP2 (2A.MD, 2B.MD, 2C.MD, 2D.MD, 2E.MD, 2F.MD)
+   Sections:
+   - NULL/MISSING VALUE ANALYSIS
+   - DATE COLUMN VALIDATION
+   - CATEGORICAL COLUMN VALIDATION
+   - NUMERIC COLUMN VALIDATION
+   - VISUALIZATIONS
+
+2. Feature Extraction Pipeline
+   📄 File: Mule-data/feature_extraction_pipeline.py
+   📊 Lines: 485
+   📝 Description: Build 40+ engineered features
+   
+   Extracts from: STEP4 (4A.MD, 4B.MD, 4C.MD, 4D.MD, 4E.MD, 4F.MD, 4G.MD)
+   Features Built:
+   - Account & Balance Features (Task 4A)
+   - Transaction Volume Features (Task 4B)
+   - Structuring & Round Amount Features (Task 4C)
+   - Channel & Time-Based Features (Task 4D-E)
+   - Advanced Features (Task 4F-G)
+
+3. LightGBM Pipeline
+   📄 File: Mule-data/lightgbm_pipeline.py
+   📊 Lines: 470
+   📝 Description: Train baseline & tuned models with 5-fold CV
+   
+   Extracts from: STEP5 (5A.MD, 5B.MD, 5C.MD, 5D.MD, 5E.MD, 5F.MD, 5G.MD)
+   Models:
+   - Baseline: 31 leaves, learning_rate=0.05, 1000 rounds
+   - Tuned: 63 leaves, learning_rate=0.02, 1500 rounds
+   - Metrics: AUC, AP, ROC curves, PR curves, threshold analysis
+
+4. GNN Ensemble Pipeline
+   📄 File: Mule-data/gnn/mule_gnn_pipeline.py
+   📊 Lines: 474
+   📝 Description: Graph Neural Network + Ensemble predictions
+   
+   Extracts from: STEP6 (GNN1.MD, GNN2.MD, GNN3.MD, GNN4.MD, GNN5.MD)
+   Sections:
+   - LOAD DATA & ADD LIGHTGBM SCORES
+   - BUILD GRAPH (40K+ account nodes + counterparty nodes)
+   - MODEL DEFINITION (3-layer GraphSAGE)
+   - TRAINING (200 epochs with early stopping)
+   - PREDICTION & ENSEMBLE
+   - SAVE RESULTS
+
+5. Documentation
+   📄 File: COMBINED_PIPELINES_README.md
+   📊 Lines: 9,226 characters
+   📝 Description: Complete guide and reference
+
+================================================================================
+EXECUTION ORDER
+================================================================================
+
+Run sequentially:
+
+1️⃣  python Mule-data/eda_pipeline.py
+    ├─ Input: master.csv, transactions_full.csv
+    └─ Output: EDA plots & console reports
+
+2️⃣  python Mule-data/feature_extraction_pipeline.py
+    ├─ Input: master.csv, transactions_full.csv
+    └─ Output: features_combined.csv (40+ features)
+
+3️⃣  python Mule-data/lightgbm_pipeline.py
+    ├─ Input: features_combined.csv
+    └─ Output: Models & visualizations
+
+4️⃣  python Mule-data/gnn/mule_gnn_pipeline.py
+    ├─ Input: features_combined.csv + LightGBM results
+    └─ Output: Ensemble predictions & GNN model
+
+================================================================================
+OUTPUT STRUCTURE
+================================================================================
+
+Mule-data/
+├── eda_pipeline.py                          (386 lines)
+├── feature_extraction_pipeline.py           (485 lines)
+├── lightgbm_pipeline.py                     (470 lines)
+├── features/
+│   ├── features_combined.csv                (main feature file)
+│   └── features_summary.txt
+├── models/
+│   ├── prep_data.pkl                        (feature columns & splits)
+│   ├── baseline_results.pkl                 (baseline model)
+│   ├── tuned_results.pkl                    (tuned model)
+│   └── final_results.pkl                    (best model for ensemble)
+└── gnn/
+    ├── mule_gnn_pipeline.py                 (474 lines)
+    ├── graph.pt                             (PyTorch geometric graph)
+    ├── best_model.pt                        (GNN weights)
+    ├── training_history.pkl
+    ├── ensemble_predictions.csv             (final output)
+    └── ensemble_results.pkl
+
+reports/
+├── eda_plots/
+│   └── 01_eda_summary.png
+└── lightgbm_plots/
+    ├── 01_roc_curves.png
+    ├── 02_pr_curves.png
+    └── 03_score_distributions.png
+
+================================================================================
+KEY FEATURES & METRICS
+================================================================================
+
+EDA Analysis:
+  ✓ Null/Missing value analysis with mule vs legit breakdown
+  ✓ Date validation across 8 date columns with cross-column checks
+  ✓ Y/N flag signal detection (>10% difference = strong signal)
+  ✓ Amount band analysis (₹1K, ₹10K, ₹50K, ₹1L, ₹5L+)
+  ✓ Transaction channel validation & anomaly detection
+
+Features (40+):
+  ✓ Account & balance: is_frozen, avg_balance, volatility, consistency
+  ✓ Transaction volume: txn_count, total_credit, fan_in_ratio
+  ✓ Structuring: structuring_40k_50k_pct, amt_exact_50k_pct, round_1k_pct
+  ✓ Channel & time: ch_ntd_pct, pct_within_6h, monthly_cv
+  ✓ Advanced: mobile_spike_ratio, channel_entropy, passthrough_hours
+
+LightGBM:
+  ✓ 5-fold stratified cross-validation
+  ✓ Baseline model (31 leaves, learning_rate=0.05)
+  ✓ Tuned model (63 leaves, learning_rate=0.02, regularization)
+  ✓ Class weight handling (1.09% mule rate)
+  ✓ Early stopping (50 rounds patience)
+  ✓ Threshold analysis for optimal precision/recall
+
+GNN:
+  ✓ Graph with 40K+ account nodes + counterparty nodes
+  ✓ 3-layer GraphSAGE (SAGEConv layers)
+  ✓ 200 epochs training with ReduceLROnPlateau scheduler
+  ✓ Class weight handling (pos_weight)
+  ✓ Early stopping via scheduler
+  ✓ Ensemble via AUC-weighted average
+
+================================================================================
+CONFIGURATION HIGHLIGHTS
+================================================================================
+
+EDA Config:
+  - reference_date: 2025-06-30
+  - txn_cutoff_date: 2023-07-01
+  - random_seed: 42
+
+Feature Config:
+  - reference_date: 2025-06-30
+  - 40+ node features extracted
+
+LightGBM Config:
+  - cv_folds: 5 (stratified)
+  - baseline_params: 31 leaves, lr=0.05
+  - tuned_params: 63 leaves, lr=0.02, L1/L2 regularization
+
+GNN Config:
+  - hidden_channels: 128
+  - out_channels: 64
+  - dropout: 0.3
+  - learning_rate: 0.001
+  - epochs: 200
+  - txn_cutoff: 2023-07-01 (last 2 years)
+
+================================================================================
+TOTAL CODE GENERATED
+================================================================================
+
+Files Created:     5
+Total Lines:       1,815 lines of production code
+Total Size:        ~65 KB
+
+Breakdown:
+  - EDA Pipeline:                 386 lines
+  - Feature Extraction Pipeline:  485 lines
+  - LightGBM Pipeline:            470 lines
+  - GNN Pipeline:                 474 lines
+  - README:                       ~250 lines
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Verify data files exist:
+   ✓ Mule-data/master.csv
+   ✓ Mule-data/transactions_full.csv
+
+2. Install dependencies:
+   pip install pandas numpy matplotlib seaborn scikit-learn lightgbm torch torch-geometric
+
+3. Run pipelines in order:
+   python Mule-data/eda_pipeline.py
+   python Mule-data/feature_extraction_pipeline.py
+   python Mule-data/lightgbm_pipeline.py
+   python Mule-data/gnn/mule_gnn_pipeline.py
+
+4. Check outputs:
+   - EDA plots in reports/eda_plots/
+   - Features in Mule-data/features/features_combined.csv
+   - Models in Mule-data/models/
+   - Final predictions in Mule-data/gnn/ensemble_predictions.csv
+
+================================================================================
+STATUS: ✅ ALL PIPELINES SUCCESSFULLY EXTRACTED & COMBINED
+================================================================================
