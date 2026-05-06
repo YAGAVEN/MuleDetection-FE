@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse
 
 from app.database import init_supabase, get_db_service
 from app.services.ml_models import get_model_manager
-from app.api import health_routes, ml_routes, db_routes
+from app.services.gan_training import get_gan_service
+from app.api import health_routes, ml_routes, db_routes, gan_routes
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -55,6 +56,12 @@ async def startup_event():
     except Exception as e:
         logger.error(f"✗ Failed to load ML models: {e}")
     
+    try:
+        get_gan_service()
+        logger.info("✓ GAN service initialized")
+    except Exception as e:
+        logger.error(f"✗ Failed to initialize GAN service: {e}")
+    
     logger.info("Startup complete!")
 
 
@@ -68,6 +75,7 @@ async def shutdown_event():
 app.include_router(health_routes.router)
 app.include_router(ml_routes.router)
 app.include_router(db_routes.router)
+app.include_router(gan_routes.router)
 
 
 # Global exception handler
@@ -88,14 +96,15 @@ async def root():
     return {
         "name": "Trinetra Mule Detection API",
         "version": "1.0.0",
-        "description": "ML-powered mule account detection system",
+        "description": "ML-powered mule account detection system with GAN augmentation",
         "endpoints": {
             "documentation": "/docs",
             "openapi": "/openapi.json",
             "health": "/api/v1/health",
             "status": "/api/v1/status",
             "ml": "/api/v1/ml",
-            "database": "/api/v1/db"
+            "database": "/api/v1/db",
+            "gan": "/api/v1/gan"
         }
     }
 
