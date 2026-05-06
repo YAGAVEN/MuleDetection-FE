@@ -1,0 +1,31 @@
+{
+  "account_id": "ACC_LOW_RISK_001",
+  "model": "lgbm_v1.0",
+  "score": 45.0,
+  "features_used": [
+    "is_frozen",
+    "unique_counterparties",
+    "monthly_cv",
+    "structuring_40k_50k_pct",
+    "pct_within_6h",
+    "ch_ntd_pct",
+    "ch_atw_pct",
+    "ch_chq_pct",
+    "avg_txn_amount",
+    "sender_concentration",
+    "mobile_spike_ratio",
+    "days_since_kyc",
+    "fan_in_ratio",
+    "amt_exact_50k_pct",
+    "avg_balance_negative",
+    "kyc_doc_count",
+    "kyc_non_compliant",
+    "account_age_days",
+    "total_credit",
+    "net_flow",
+    "credit_debit_ratio",
+    "mean_passthrough_hours",
+    "channel_entropy"
+  ],
+  "timestamp": "2026-05-06T10:35:01.594735"
+}
