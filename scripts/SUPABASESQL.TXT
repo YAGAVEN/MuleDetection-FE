@@ -1,0 +1,441 @@
+-- ============================================================
+-- TRINETRA SUPABASE SCHEMA
+-- ============================================================
+
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
+
+-- ============================================================
+-- AUTH: user profiles (linked to Supabase auth.users)
+-- ============================================================
+create table public.profiles (
+  id uuid references auth.users(id) on delete cascade primary key,
+  email text not null,
+  full_name text,
+  role text not null default 'analyst' check (role in ('analyst', 'admin')),
+  is_active boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- ============================================================
+-- ACCOUNTS (mule data from Mule-data/master.csv)
+-- ============================================================
+create table public.accounts (
+  account_id text primary key,
+  customer_id text,
+  account_status text,
+  product_family text,
+  is_mule smallint,              -- 0, 1, or null (test set)
+  risk_score numeric(5,2),       -- LightGBM output 0–100
+  risk_level text check (risk_level in ('LOW','MEDIUM','HIGH','CRITICAL')),
+  avg_balance numeric(15,2),
+  is_frozen boolean default false,
+  kyc_compliant boolean,
+  rural_branch boolean,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- ============================================================
+-- TRANSACTIONS
+-- ============================================================
+create table public.transactions (
+  transaction_id text primary key,
+  account_id text references public.accounts(account_id),
+  counterparty_id text,
+  amount numeric(15,2) not null,
+  txn_type text check (txn_type in ('C','D')),
+  channel text,
+  suspicious_score numeric(4,3),
+  pattern_type text,
+  transaction_timestamp timestamptz not null,
+  created_at timestamptz default now()
+);
+
+create index idx_transactions_account on public.transactions(account_id);
+create index idx_transactions_timestamp on public.transactions(transaction_timestamp desc);
+create index idx_transactions_suspicious on public.transactions(suspicious_score desc);
+
+-- ============================================================
+-- ML FEATURES (one row per account for model inference)
+-- ============================================================
+create table public.account_features (
+  account_id text primary key references public.accounts(account_id),
+  is_frozen smallint default 0,
+  unique_counterparties integer,
+  monthly_cv numeric(8,4),
+  structuring_40k_50k_pct numeric(6,4),
+  pct_within_6h numeric(6,4),
+  ch_ntd_pct numeric(6,4),
+  ch_atw_pct numeric(6,4),
+  ch_chq_pct numeric(6,4),
+  avg_txn_amount numeric(15,2),
+  sender_concentration numeric(6,4),
+  mobile_spike_ratio numeric(8,4),
+  days_since_kyc integer,
+  fan_in_ratio numeric(6,4),
+  amt_exact_50k_pct numeric(6,4),
+  avg_balance_negative smallint default 0,
+  kyc_doc_count smallint,
+  kyc_non_compliant smallint default 0,
+  account_age_days integer,
+  total_credit numeric(15,2),
+  net_flow numeric(15,2),
+  credit_debit_ratio numeric(8,4),
+  mean_passthrough_hours numeric(8,4),
+  channel_entropy numeric(8,4),
+  lgbm_score numeric(6,4),
+  gnn_score numeric(6,4),
+  ensemble_score numeric(6,4),
+  updated_at timestamptz default now()
+);
+
+-- ============================================================
+-- ALERTS (real-time mule detection alerts)
+-- ============================================================
+create table public.alerts (
+  id uuid default uuid_generate_v4() primary key,
+  account_id text references public.accounts(account_id),
+  alert_type text not null check (alert_type in (
+    'HIGH_RISK_SCORE','STRUCTURING','RAPID_PASSTHROUGH',
+    'SUSPICIOUS_CHANNEL','NETWORK_FLAG','FREEZE_EVENT'
+  )),
+  severity text not null check (severity in ('LOW','MEDIUM','HIGH','CRITICAL')),
+  title text not null,
+  description text,
+  risk_score numeric(5,2),
+  is_read boolean default false,
+  is_actioned boolean default false,
+  actioned_by uuid references public.profiles(id),
+  actioned_at timestamptz,
+  created_at timestamptz default now()
+);
+
+create index idx_alerts_account on public.alerts(account_id);
+create index idx_alerts_unread on public.alerts(is_read, created_at desc);
+create index idx_alerts_severity on public.alerts(severity, created_at desc);
+
+-- ============================================================
+-- SAR REPORTS (Suspicious Activity Reports)
+-- ============================================================
+create table public.sar_reports (
+  id uuid default uuid_generate_v4() primary key,
+  account_id text references public.accounts(account_id),
+  report_id text unique not null,
+  status text default 'draft' check (status in ('draft','validated','filed','rejected')),
+  priority text check (priority in ('LOW','MEDIUM','HIGH')),
+  risk_level text check (risk_level in ('LOW','MEDIUM','HIGH')),
+  summary text,
+  confidence_score numeric(4,3),
+  suspicious_transactions integer,
+  total_amount numeric(15,2),
+  report_json jsonb,
+  filing_deadline date,
+  generated_by uuid references public.profiles(id),
+  validated_by uuid references public.profiles(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- ============================================================
+-- AUDIT LOG (who did what)
+-- ============================================================
+create table public.audit_log (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.profiles(id),
+  action text not null,
+  table_name text,
+  record_id text,
+  old_values jsonb,
+  new_values jsonb,
+  ip_address text,
+  created_at timestamptz default now()
+);
+
+-- ============================================================
+-- ROW LEVEL SECURITY
+-- ============================================================
+alter table public.profiles enable row level security;
+alter table public.accounts enable row level security;
+alter table public.transactions enable row level security;
+alter table public.account_features enable row level security;
+alter table public.alerts enable row level security;
+alter table public.sar_reports enable row level security;
+alter table public.audit_log enable row level security;
+
+-- Profiles: users see only their own row; admins see all
+create policy "Users can view own profile"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+create policy "Admins can view all profiles"
+  on public.profiles for select
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+create policy "Admins can update profiles"
+  on public.profiles for update
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Accounts, transactions, features: all authenticated users can read
+create policy "Authenticated users can view accounts"
+  on public.accounts for select
+  using (auth.role() = 'authenticated');
+
+create policy "Authenticated users can view transactions"
+  on public.transactions for select
+  using (auth.role() = 'authenticated');
+
+create policy "Authenticated users can view features"
+  on public.account_features for select
+  using (auth.role() = 'authenticated');
+
+-- Admins can insert/update accounts and features (for batch score writes)
+create policy "Admins can upsert accounts"
+  on public.accounts for all
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+create policy "Admins can upsert features"
+  on public.account_features for all
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Alerts: all users read, analysts/admins create, admins can action
+create policy "Users can view alerts"
+  on public.alerts for select
+  using (auth.role() = 'authenticated');
+
+create policy "Users can create alerts"
+  on public.alerts for insert
+  with check (auth.role() = 'authenticated');
+
+create policy "Users can update own alerts"
+  on public.alerts for update
+  using (auth.role() = 'authenticated');
+
+-- SAR: all authenticated users can read and create
+create policy "Users can view SARs"
+  on public.sar_reports for select
+  using (auth.role() = 'authenticated');
+
+create policy "Users can create SARs"
+  on public.sar_reports for insert
+  with check (auth.role() = 'authenticated');
+
+create policy "Admins can update SARs"
+  on public.sar_reports for update
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Audit log: admins only
+create policy "Admins can view audit log"
+  on public.audit_log for select
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+create policy "System can insert audit log"
+  on public.audit_log for insert
+  with check (auth.role() = 'authenticated');
+
+-- ============================================================
+-- REALTIME (enable for live alert feed)
+-- ============================================================
+alter publication supabase_realtime add table public.alerts;
+alter publication supabase_realtime add table public.accounts;
+
+-- ============================================================
+-- AUTO-CREATE PROFILE ON SIGNUP
+-- ============================================================
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    coalesce(new.raw_user_meta_data->>'role', 'analyst')
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- ============================================================
+-- UPDATED_AT trigger function
+-- ============================================================
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger accounts_updated_at before update on public.accounts
+  for each row execute procedure public.set_updated_at();
+
+create trigger sar_updated_at before update on public.sar_reports
+  for each row execute procedure public.set_updated_at();
+
+create trigger profiles_updated_at before update on public.profiles
+  for each row execute procedure public.set_updated_at();
+
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.account_features (
+  account_id text NOT NULL,
+  is_frozen smallint DEFAULT 0,
+  unique_counterparties integer,
+  monthly_cv numeric,
+  structuring_40k_50k_pct numeric,
+  pct_within_6h numeric,
+  ch_ntd_pct numeric,
+  ch_atw_pct numeric,
+  ch_chq_pct numeric,
+  avg_txn_amount numeric,
+  sender_concentration numeric,
+  mobile_spike_ratio numeric,
+  days_since_kyc integer,
+  fan_in_ratio numeric,
+  amt_exact_50k_pct numeric,
+  avg_balance_negative smallint DEFAULT 0,
+  kyc_doc_count smallint,
+  kyc_non_compliant smallint DEFAULT 0,
+  account_age_days integer,
+  total_credit numeric,
+  net_flow numeric,
+  credit_debit_ratio numeric,
+  mean_passthrough_hours numeric,
+  channel_entropy numeric,
+  lgbm_score numeric,
+  gnn_score numeric,
+  ensemble_score numeric,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT account_features_pkey PRIMARY KEY (account_id),
+  CONSTRAINT account_features_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id)
+);
+CREATE TABLE public.accounts (
+  account_id text NOT NULL,
+  customer_id text,
+  account_status text,
+  product_family text,
+  is_mule smallint,
+  risk_score numeric,
+  risk_level text CHECK (risk_level = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text])),
+  avg_balance numeric,
+  is_frozen boolean DEFAULT false,
+  kyc_compliant boolean,
+  rural_branch boolean,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT accounts_pkey PRIMARY KEY (account_id)
+);
+CREATE TABLE public.alerts (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  account_id text,
+  alert_type text NOT NULL CHECK (alert_type = ANY (ARRAY['HIGH_RISK_SCORE'::text, 'STRUCTURING'::text, 'RAPID_PASSTHROUGH'::text, 'SUSPICIOUS_CHANNEL'::text, 'NETWORK_FLAG'::text, 'FREEZE_EVENT'::text])),
+  severity text NOT NULL CHECK (severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text])),
+  title text NOT NULL,
+  description text,
+  risk_score numeric,
+  is_read boolean DEFAULT false,
+  is_actioned boolean DEFAULT false,
+  actioned_by uuid,
+  actioned_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT alerts_pkey PRIMARY KEY (id),
+  CONSTRAINT alerts_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT alerts_actioned_by_fkey FOREIGN KEY (actioned_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.audit_log (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid,
+  action text NOT NULL,
+  table_name text,
+  record_id text,
+  old_values jsonb,
+  new_values jsonb,
+  ip_address text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT audit_log_pkey PRIMARY KEY (id),
+  CONSTRAINT audit_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  email text NOT NULL,
+  full_name text,
+  role text NOT NULL DEFAULT 'analyst'::text CHECK (role = ANY (ARRAY['analyst'::text, 'admin'::text])),
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.sar_reports (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  account_id text,
+  report_id text NOT NULL UNIQUE,
+  status text DEFAULT 'draft'::text CHECK (status = ANY (ARRAY['draft'::text, 'validated'::text, 'filed'::text, 'rejected'::text])),
+  priority text CHECK (priority = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text])),
+  risk_level text CHECK (risk_level = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text])),
+  summary text,
+  confidence_score numeric,
+  suspicious_transactions integer,
+  total_amount numeric,
+  report_json jsonb,
+  filing_deadline date,
+  generated_by uuid,
+  validated_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT sar_reports_pkey PRIMARY KEY (id),
+  CONSTRAINT sar_reports_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id),
+  CONSTRAINT sar_reports_generated_by_fkey FOREIGN KEY (generated_by) REFERENCES public.profiles(id),
+  CONSTRAINT sar_reports_validated_by_fkey FOREIGN KEY (validated_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.transactions (
+  transaction_id text NOT NULL,
+  account_id text,
+  counterparty_id text,
+  amount numeric NOT NULL,
+  txn_type text CHECK (txn_type = ANY (ARRAY['C'::text, 'D'::text])),
+  channel text,
+  suspicious_score numeric,
+  pattern_type text,
+  transaction_timestamp timestamp with time zone NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT transactions_pkey PRIMARY KEY (transaction_id),
+  CONSTRAINT transactions_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(account_id)
+);

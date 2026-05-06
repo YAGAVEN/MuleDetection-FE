@@ -6,6 +6,7 @@
 *.pickle
 *.joblib
 *.mp4
+*.env
 
 # ============================================================
 # PYTHON & VIRTUAL ENVIRONMENTS
@@ -71,6 +72,14 @@ Thumbs.db
 *.tmp
 *.temp
 *.bak
+
+# ============================================================
+# BACKEND GENERATED ARTIFACTS
+# ============================================================
+backend/.venv/
+backend/logs/
+backend/ml_results/
+backend/.env
 
 # ============================================================
 # KEEP THESE FOLDERS & FILES (explicitly included)
