@@ -1,29 +1,13 @@
 # ============================================================
-# LARGE DATA DIRECTORIES & MEDIA
-# Ignore entire large-data directories instead of all file extensions
-
-
-# so we can explicitly keep small, required CSVs in tracked folders.
+# LARGE DATA FILES (exclude only CSV and PKL files)
 # ============================================================
-/data/
-/ml_results/
-/backend/data/
-
-
-*.mp4
 *.csv
-
-
-
 *.pkl
-*.json
-*.pdf
-
-# Sensitive environment files
+*.pickle
+*.joblib
+*.mp4
 *.env
-
-
-*.env.*
+*.json
 
 # ============================================================
 # PYTHON & VIRTUAL ENVIRONMENTS
@@ -65,28 +49,6 @@ pip-delete-this-directory.txt
 *.sublime-project
 *.sublime-workspace
 
-# Node / frontend
-node_modules/
-/frontend/node_modules/
-/frontend/dist/
-
-# Virtualenv named dot-venv
-.venv/
-
-# Python/tooling caches
-.pytest_cache/
-.mypy_cache/
-.coverage
-coverage.xml
-htmlcov/
-.cache/
-
-# Build / bundler caches
-.parcel-cache/
-
-
-.vite/
-
 # ============================================================
 # OS
 # ============================================================
@@ -110,9 +72,15 @@ Thumbs.db
 *.log
 *.tmp
 *.temp
-
-
 *.bak
+
+# ============================================================
+# BACKEND GENERATED ARTIFACTS
+# ============================================================
+backend/.venv/
+backend/logs/
+backend/ml_results/
+backend/.env
 
 # ============================================================
 # KEEP THESE FOLDERS & FILES (explicitly included)
