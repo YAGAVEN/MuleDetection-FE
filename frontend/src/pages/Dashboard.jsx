@@ -224,6 +224,12 @@ const DashboardPage = () => {
               description: 'Adversarial training with GAN and live reports',
               path: '/hydra',
             },
+            {
+              icon: '🛡️',
+              name: 'Sentinel',
+              description: 'Active monitoring of Alerts, SAR Reports, and DB Sync',
+              path: '/sentinel',
+            },
           ].map((feature, idx) => (
             <button
               key={idx}

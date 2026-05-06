@@ -25,6 +25,7 @@ const MainLayout = ({ children }) => {
     { id: 'chronos', label: 'Chronos (Visualization)', path: '/chronos', icon: '📈' },
     { id: 'mule-engine', label: 'Mule Engine (Prediction)', path: '/mule-engine', icon: '🔍' },
     { id: 'hydra', label: 'Hydra (GAN Training)', path: '/hydra', icon: '⚡' },
+    { id: 'sentinel', label: 'Sentinel (Alerts & Reports)', path: '/sentinel', icon: '🛡️' },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -98,43 +99,6 @@ const MainLayout = ({ children }) => {
           </nav>
         </div>
 
-        {/* Logout Button */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '1rem',
-            left: '1rem',
-            right: '1rem',
-          }}
-        >
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              width: '100%',
-              padding: '0.75rem 1rem',
-              backgroundColor: 'rgba(220, 53, 69, 0.1)',
-              color: iobTheme.colors.secondary.main,
-              border: `2px solid ${iobTheme.colors.error}`,
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-              transition: 'background-color 150ms ease-in-out',
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
-            }}
-          >
-            <LogOut size={16} />
-            <span>Logout</span>
-          </button>
-        </div>
       </div>
 
       {/* Main Content */}
@@ -204,6 +168,29 @@ const MainLayout = ({ children }) => {
             >
               {user?.email?.charAt(0).toUpperCase()}
             </div>
+            
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                color: iobTheme.colors.error,
+                border: 'none',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                transition: 'background-color 150ms ease-in-out',
+                marginLeft: '0.5rem',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(220, 53, 69, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(220, 53, 69, 0.1)'}
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
 
