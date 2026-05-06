@@ -1,0 +1,33 @@
+{
+  "account_id": "ACC_LOW_RISK_001",
+  "model": "gnn_v1.0",
+  "score": 16.0,
+  "network_info": {
+    "network_features": {
+      "is_frozen": 0.0,
+      "unique_counterparties": 5.0,
+      "monthly_cv": 0.1,
+      "structuring_40k_50k_pct": 0.02,
+      "pct_within_6h": 0.05,
+      "ch_ntd_pct": 0.2,
+      "ch_atw_pct": 0.5,
+      "ch_chq_pct": 0.3,
+      "avg_txn_amount": 25000.0,
+      "sender_concentration": 0.4,
+      "mobile_spike_ratio": 0.8,
+      "days_since_kyc": 5.0,
+      "fan_in_ratio": 0.2,
+      "amt_exact_50k_pct": 0.0,
+      "avg_balance_negative": 0.0,
+      "kyc_doc_count": 5.0,
+      "kyc_non_compliant": 0.0,
+      "account_age_days": 365.0,
+      "total_credit": 100000.0,
+      "net_flow": 25000.0,
+      "credit_debit_ratio": 1.5,
+      "mean_passthrough_hours": 24.0,
+      "channel_entropy": 1.8
+    }
+  },
+  "timestamp": "2026-05-06T10:35:01.594834"
+}

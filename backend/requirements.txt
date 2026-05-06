@@ -14,3 +14,5 @@ torchvision
 requests
 httpx
 sqlalchemy
+shap
+reportlab

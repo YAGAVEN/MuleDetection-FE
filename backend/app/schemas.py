@@ -151,3 +151,85 @@ class HealthCheckResponse(BaseModel):
     timestamp: datetime
     database_connected: bool
     models_loaded: bool
+
+
+class FeatureContribution(BaseModel):
+    feature_name: str
+    shap_value: float
+    base_value: float
+    contribution_percentage: float
+
+
+class SHAPExplanationResponse(BaseModel):
+    account_id: str
+    prediction_score: float
+    risk_level: str
+    base_value: float
+    feature_contributions: List[FeatureContribution]
+    top_positive_features: List[FeatureContribution]
+    top_negative_features: List[FeatureContribution]
+    model_used: str
+    explanation_timestamp: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class SHAPBatchExplanationRequest(BaseModel):
+    accounts: List[MLPredictionRequest]
+    top_features: int = 10
+
+
+class SHAPBatchExplanationResponse(BaseModel):
+    total: int
+    processed: int
+    explanations: List[SHAPExplanationResponse]
+    errors: Optional[List[Dict[str, Any]]] = None
+
+
+class ModelExplanationReport(BaseModel):
+    """Explanation for a single model (LightGBM, GNN, or Ensemble)"""
+    model_name: str
+    prediction_score: float
+    risk_level: str
+    base_value: float
+    top_contributing_features: List[FeatureContribution]
+    feature_analysis: Dict[str, FeatureContribution]
+    model_version: str
+    timestamp: datetime
+
+
+class ModelComparisonData(BaseModel):
+    """Comparison data between models"""
+    model_1: str
+    model_2: str
+    score_difference: float
+    agreement_percentage: float
+    disagreeing_features: List[str]
+    average_feature_weight_diff: float
+
+
+class SHAPModelReport(BaseModel):
+    """Comprehensive SHAP report comparing LightGBM, GNN, and Ensemble"""
+    account_id: str
+    report_title: str
+    report_description: str
+    
+    # Individual model explanations
+    lgbm_explanation: ModelExplanationReport
+    gnn_explanation: ModelExplanationReport
+    ensemble_explanation: ModelExplanationReport
+    
+    # Comparisons
+    lgbm_vs_gnn: ModelComparisonData
+    lgbm_vs_ensemble: ModelComparisonData
+    gnn_vs_ensemble: ModelComparisonData
+    
+    # Summary
+    consensus_features: List[FeatureContribution]  # Features all models agree on
+    conflicting_features: List[FeatureContribution]  # Features models disagree on
+    overall_risk_assessment: str
+    recommendations: List[str]
+    
+    report_generated_at: datetime
+    shap_version: str
