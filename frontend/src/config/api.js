@@ -15,19 +15,21 @@ export const API_CONFIG = {
 
     // Database Routes
     DB: {
-      TRANSACTIONS: '/api/v1/db/transactions',
       ACCOUNTS: '/api/v1/db/accounts',
-      ANALYTICS: '/api/v1/db/analytics',
-      DATA_STATS: '/api/v1/db/data-stats',
-      PATTERNS: '/api/v1/db/patterns',
+      ACCOUNT_FEATURES: '/api/v1/db/account-features',
+      ALERTS: '/api/v1/db/alerts',
+      SAR_REPORTS: '/api/v1/db/sar-reports',
+      SYNC_STATUS: '/api/v1/db/sync-status',
+      ANALYTICS: '/api/v1/db/analytics', // Keeping this for ChronosPage
     },
 
     // ML Model Routes
     ML: {
       PREDICT: '/api/v1/ml/predict',
       PREDICT_BATCH: '/api/v1/ml/predict-batch',
-      MODELS: '/api/v1/ml/models',
-      METRICS: '/api/v1/ml/metrics',
+      PREDICT_AND_SAVE: '/api/v1/ml/predict-and-save',
+      MODEL_INFO: '/api/v1/ml/model-info',
+      FEATURE_ENGINEERING: '/api/v1/ml/feature-engineering',
       FEATURES: '/api/v1/ml/features',
     },
 

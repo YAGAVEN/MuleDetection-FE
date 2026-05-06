@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import ChronosPage from './pages/ChronosPage';
 import MuleEnginePage from './pages/MuleEnginePage';
 import HydraPage from './pages/HydraPage';
+import SentinelPage from './pages/SentinelPage';
 import { iobTheme } from './config/theme';
 
 // Protected Route Wrapper
@@ -130,6 +131,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute>
               <HydraPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sentinel"
+          element={
+            <ProtectedRoute>
+              <SentinelPage />
             </ProtectedRoute>
           }
         />
