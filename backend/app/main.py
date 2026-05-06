@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.database import init_supabase, get_db_service
 from app.services.ml_models import get_model_manager
 from app.services.gan_training import get_gan_service
-from app.api import health_routes, ml_routes, db_routes, gan_routes
+from app.api import health_routes, ml_routes, db_routes, gan_routes, auth_routes
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -73,6 +73,7 @@ async def shutdown_event():
 
 # Include routers
 app.include_router(health_routes.router)
+app.include_router(auth_routes.router)
 app.include_router(ml_routes.router)
 app.include_router(db_routes.router)
 app.include_router(gan_routes.router)
