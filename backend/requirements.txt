@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+supabase
+python-multipart
+numpy
+pandas
+scikit-learn
+lightgbm
+torch
+torchvision
+requests
+httpx
+sqlalchemy
