@@ -1,591 +1,264 @@
-/**
- * Hydra Page - Adversarial GAN Training
- * Real-time GAN training with WebSocket updates
- */
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Navbar from '../components/Layout/Navbar.jsx'
+import ProgressFlow from '../components/shared/ProgressFlow.jsx'
+import NotificationToast, { notify } from '../components/shared/NotificationToast.jsx'
+import { Icon } from '../components/Icons/IconSystem'
+import BattleArenaView from '../components/Hydra/BattleArenaView.jsx'
+import BattleMetrics from '../components/Hydra/BattleMetrics.jsx'
 
-import React, { useEffect, useState } from 'react';
-import { api, API_CONFIG } from '../config/api';
-import { iobTheme, getThemeByPage } from '../config/theme';
-import { Play, Pause, Download, ChevronDown } from 'lucide-react';
-import * as echarts from 'echarts';
-import { GANWebSocketService } from '../services/websocket';
+export default function HydraPage() {
+  const navigate = useNavigate()
+  const battleRef = useRef(null)
 
-const HydraPage = () => {
-  const theme = getThemeByPage('hydra');
-  const [training, setTraining] = useState(null);
-  const [trainings, setTrainings] = useState([]);
-  const [selectedTraining, setSelectedTraining] = useState(null);
-  const [wsService, setWsService] = useState(null);
-  const [config, setConfig] = useState({
-    gan_epochs: 50,
-    gan_batch_size: 32,
-    gan_latent_dim: 100,
-    lambda_cycle: 0.5,
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [battleActive, setBattleActive] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [analysing, setAnalysing] = useState(false)
+  const [battleAnalysis, setBattleAnalysis] = useState(null)
+  const [metrics, setMetrics] = useState({
+    defenderWins: 0,
+    attackerWins: 0,
+    totalBattles: 0,
+    detectionRate: 0,
+  })
 
-  const progressChartRef = React.useRef(null);
-  const lossChartRef = React.useRef(null);
-
-  useEffect(() => {
-    fetchTrainings();
-  }, []);
-
-  const fetchTrainings = async () => {
+  const startBattle = async () => {
     try {
-      const res = await api.get(API_CONFIG.ENDPOINTS.GAN.SESSIONS);
-      setTrainings(res.data.sessions || []);
-
-      // Connect to latest training if available
-      const latestTraining = res.data.sessions?.[0];
-      if (latestTraining) {
-        connectToTraining(latestTraining.training_id);
-      }
-    } catch (err) {
-      console.error('Failed to fetch trainings:', err);
-      // Mock data
-      setTrainings([
-        {
-          training_id: 'train_20240115_mock_001',
-          status: 'completed',
-          started_at: '2024-01-15T10:00:00Z',
-        },
-      ]);
+      setBattleActive(true)
+      await battleRef.current?.startBattle()
+      updateMetrics()
+      notify('AI Battle initiated successfully!', 'success')
+    } catch {
+      notify('Failed to start battle', 'error')
+      setBattleActive(false)
     }
-  };
+  }
 
-  const connectToTraining = async (trainingId) => {
+  const stopBattle = () => {
+    battleRef.current?.stopBattle()
+    setBattleActive(false)
+    updateMetrics()
+    notify('AI Battle stopped', 'info')
+  }
+
+  const runSimulation = async () => {
     try {
-      // Fetch current training status
-      const res = await api.get(`${API_CONFIG.ENDPOINTS.GAN.TRAIN_PROGRESS}/${trainingId}`);
-      setTraining(res.data);
-      setSelectedTraining(trainingId);
-
-      // Connect WebSocket if training is ongoing
-      if (res.data.status === 'training') {
-        const ws = new GANWebSocketService(trainingId);
-        ws.onProgress((data) => {
-          setTraining((prev) => ({
-            ...prev,
-            ...data,
-          }));
-        });
-        ws.onMetrics((data) => {
-          setTraining((prev) => ({
-            ...prev,
-            ...data,
-          }));
-        });
-
-        ws.connect({
-          onOpen: () => console.log('WebSocket connected'),
-          onError: (err) => console.error('WebSocket error:', err),
-        }).catch((err) => console.error('WebSocket connection failed:', err));
-
-        setWsService(ws);
-      }
-    } catch (err) {
-      console.error('Failed to fetch training status:', err);
+      notify('Running simulation…', 'info')
+      await battleRef.current?.runSimulation()
+      updateMetrics()
+      notify('Simulation complete!', 'success')
+    } catch {
+      notify('Simulation failed', 'error')
     }
-  };
+  }
 
-  const startTraining = async (e) => {
-    e.preventDefault();
+  const updateMetrics = () => {
+    const raw = battleRef.current?.getMetrics?.()
+    if (raw) {
+      setMetrics({
+        defenderWins: raw.defenderWins ?? 0,
+        attackerWins: raw.attackerWins ?? 0,
+        totalBattles: raw.totalBattles ?? 0,
+        detectionRate: raw.detectionRate != null ? Math.round(raw.detectionRate * 100) : 0,
+      })
+    }
+  }
 
+  const exportResults = async () => {
+    setExporting(true)
     try {
-      setLoading(true);
-      setError(null);
-
-      const res = await api.post(API_CONFIG.ENDPOINTS.GAN.TRAIN_START, {
-        data_path: '/path/to/data.csv',
-        config,
-      });
-
-      setTraining(res.data);
-      setSelectedTraining(res.data.training_id);
-      connectToTraining(res.data.training_id);
-
-      // Refresh trainings list
-      fetchTrainings();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to start training');
+      const { default: PDFGenerator } = await import('../services/pdf-generator.js')
+      const gen = new PDFGenerator()
+      await gen.generateHydraPDF?.(metrics)
+      notify('Results exported!', 'success')
+    } catch {
+      notify('Export failed', 'error')
     } finally {
-      setLoading(false);
+      setExporting(false)
     }
-  };
+  }
 
-  const saveCheckpoint = async () => {
-    if (!selectedTraining) return;
-
+  const getBattleInsights = async () => {
+    setAnalysing(true)
+    setBattleAnalysis(null)
     try {
-      await api.post(API_CONFIG.ENDPOINTS.GAN.CHECKPOINT_SAVE, {
-        training_id: selectedTraining,
-        checkpoint_name: `checkpoint_${new Date().toISOString().slice(0, 10)}`,
-      });
-
-      alert('Checkpoint saved successfully');
-    } catch (err) {
-      alert('Failed to save checkpoint');
+      await delay(2500)
+      setBattleAnalysis(generateMockInsights(metrics))
+      notify('Battle analysis ready!', 'success')
+    } catch {
+      notify('Analysis failed', 'error')
+    } finally {
+      setAnalysing(false)
     }
-  };
+  }
 
-  useEffect(() => {
-    if (training && progressChartRef.current) {
-      renderProgressChart();
-    }
-    if (training && lossChartRef.current) {
-      renderLossChart();
-    }
-  }, [training]);
-
-  const renderProgressChart = () => {
-    if (!training || !progressChartRef.current) return;
-
-    const chart = echarts.init(progressChartRef.current);
-    const progress = (training.current_epoch / training.total_epochs) * 100;
-
-    chart.setOption({
-      series: [
-        {
-          type: 'gauge',
-          startAngle: 180,
-          endAngle: 0,
-          radius: '80%',
-          center: ['50%', '60%'],
-          min: 0,
-          max: 100,
-          progress: { show: true, width: 30, itemStyle: { color: theme.progress } },
-          axisLine: { lineStyle: { width: 30, color: [[1, '#E9ECEF']] } },
-          axisTick: { distance: 8, splitNumber: 5, lineStyle: { width: 2, color: '#999' } },
-          splitLine: { distance: 8, length: 8, lineStyle: { width: 3, color: '#999' } },
-          axisLabel: { color: 'auto', distance: 16, fontSize: 12 },
-          detail: {
-            valueAnimation: true,
-            formatter: '{value}%',
-            color: theme.progress,
-            fontSize: 20,
-          },
-          data: [progress],
-        },
-      ],
-    });
-  };
-
-  const renderLossChart = () => {
-    if (!training || !lossChartRef.current) return;
-
-    const chart = echarts.init(lossChartRef.current);
-
-    chart.setOption({
-      color: [theme.primary, '#FF6B35', '#9C27B0'],
-      tooltip: { trigger: 'axis' },
-      legend: {
-        data: ['Current Loss', 'Best Loss', 'Generator Loss'],
-        textStyle: { color: theme.primary },
-      },
-      grid: { left: '3%', right: '3%', bottom: '3%', top: '10%', containLabel: true },
-      xAxis: {
-        type: 'category',
-        data: Array.from({ length: Math.min(training.current_epoch || 1, 20) }, (_, i) =>
-          Math.max(1, (training.current_epoch || 1) - 20 + i)
-        ),
-      },
-      yAxis: { type: 'value' },
-      series: [
-        {
-          name: 'Current Loss',
-          data: Array.from({ length: 20 }, () => (training.current_loss || 0.5) + Math.random() * 0.1),
-          type: 'line',
-          smooth: true,
-        },
-        {
-          name: 'Best Loss',
-          data: Array.from({ length: 20 }, (_, i) =>
-            Math.max(0.1, (training.best_loss || 0.3) + Math.random() * 0.05)
-          ),
-          type: 'line',
-          smooth: true,
-        },
-      ],
-    });
-  };
+  const handleComplete = () => {
+    navigate('/chronos')
+  }
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1
-          style={{
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            color: theme.primary,
-            marginBottom: '0.5rem',
-          }}
-        >
-          Hydra - Adversarial Training
-        </h1>
-        <p style={{ color: iobTheme.colors.gray[600] }}>Real-time GAN training with live progress monitoring</p>
-      </div>
+    <div className="text-white">
+      <Navbar pageTitle="HYDRA" pageIcon={<Icon name="Shield" size={24} className="text-red-500" />} pageTitleColor="text-red-500" />
+      <NotificationToast />
 
-      {/* Status Overview */}
-      {training && (
-        <div
-          style={{
-            backgroundColor: iobTheme.colors.secondary.main,
-            borderRadius: '0.75rem',
-            padding: '1.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-            {[
-              { label: 'Status', value: training.status?.toUpperCase(), color: theme.primary },
-              { label: 'Epoch', value: `${training.current_epoch}/${training.total_epochs}` },
-              {
-                label: 'Current Loss',
-                value: training.current_loss ? training.current_loss.toFixed(4) : 'N/A',
-              },
-              {
-                label: 'Best Loss',
-                value: training.best_loss ? training.best_loss.toFixed(4) : 'N/A',
-              },
-            ].map((item, idx) => (
-              <div key={idx}>
-                <p
-                  style={{
-                    color: iobTheme.colors.gray[600],
-                    fontSize: '0.875rem',
-                    marginBottom: '0.25rem',
-                  }}
-                >
-                  {item.label}
-                </p>
-                <p
-                  style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 'bold',
-                    color: item.color || theme.primary,
-                  }}
-                >
-                  {item.value}
-                </p>
-              </div>
-            ))}
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-red-500 to-purple-600 rounded-full flex items-center justify-center text-4xl animate-[battle_2s_ease-in-out_infinite]">
+            <Icon name="Shield" size={48} className="text-white" />
           </div>
-        </div>
-      )}
-
-      {/* Charts */}
-      {training && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '2rem',
-          }}
-        >
-          {/* Progress Chart */}
-          <div
-            style={{
-              backgroundColor: iobTheme.colors.secondary.main,
-              borderRadius: '0.75rem',
-              padding: '1.5rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: theme.primary }}>
-              Training Progress
-            </h3>
-            <div ref={progressChartRef} style={{ width: '100%', height: '250px' }} />
-          </div>
-
-          {/* Loss Chart */}
-          <div
-            style={{
-              backgroundColor: iobTheme.colors.secondary.main,
-              borderRadius: '0.75rem',
-              padding: '1.5rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: theme.primary }}>
-              Loss Trend
-            </h3>
-            <div ref={lossChartRef} style={{ width: '100%', height: '250px' }} />
-          </div>
-        </div>
-      )}
-
-      {/* Training Configuration */}
-      <form
-        onSubmit={startTraining}
-        style={{
-          backgroundColor: iobTheme.colors.secondary.main,
-          borderRadius: '0.75rem',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            marginBottom: '1rem',
-            color: theme.primary,
-          }}
-        >
-          Training Configuration
-        </h2>
-
-        {error && (
-          <div
-            style={{
-              backgroundColor: iobTheme.colors.error + '15',
-              color: iobTheme.colors.error,
-              padding: '0.75rem',
-              borderRadius: '0.375rem',
-              marginBottom: '1rem',
-              fontSize: '0.875rem',
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        {/* Basic Config */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-          {[
-            { label: 'Epochs', key: 'gan_epochs', type: 'number' },
-            { label: 'Batch Size', key: 'gan_batch_size', type: 'number' },
-            { label: 'Latent Dim', key: 'gan_latent_dim', type: 'number' },
-            { label: 'Lambda Cycle', key: 'lambda_cycle', type: 'number', step: 0.1 },
-          ].map((field) => (
-            <div key={field.key}>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '0.25rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: iobTheme.colors.gray[700],
-                }}
-              >
-                {field.label}
-              </label>
-              <input
-                type={field.type}
-                value={config[field.key]}
-                onChange={(e) =>
-                  setConfig({ ...config, [field.key]: parseFloat(e.target.value) || e.target.value })
-                }
-                step={field.step || 1}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: `1px solid ${iobTheme.colors.gray[300]}`,
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem',
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Advanced Config Toggle */}
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.5rem 0',
-            backgroundColor: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: theme.primary,
-            fontWeight: '500',
-            marginBottom: '1rem',
-          }}
-        >
-          Advanced Options
-          <ChevronDown size={16} style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)' }} />
-        </button>
-
-        {showAdvanced && (
-          <div
-            style={{
-              backgroundColor: iobTheme.colors.gray[50],
-              padding: '1rem',
-              borderRadius: '0.375rem',
-              marginBottom: '1rem',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1rem',
-            }}
-          >
-            {[
-              { label: 'Lambda GP', key: 'lambda_gp' },
-              { label: 'Synthetic Ratio', key: 'synthetic_ratio' },
-              { label: 'Adversarial Epsilon', key: 'adversarial_epsilon' },
-            ].map((field) => (
-              <div key={field.key}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', fontWeight: '500' }}>
-                  {field.label}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  style={{
-                    width: '100%',
-                    padding: '0.5rem',
-                    border: `1px solid ${iobTheme.colors.gray[300]}`,
-                    borderRadius: '0.375rem',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <button
-            type="submit"
-            disabled={loading || training?.status === 'training'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem 1.5rem',
-              backgroundColor: training?.status === 'training' ? iobTheme.colors.gray[400] : theme.primary,
-              color: iobTheme.colors.secondary.main,
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: training?.status === 'training' ? 'not-allowed' : 'pointer',
-              fontWeight: '600',
-            }}
-          >
-            <Play size={16} />
-            {training?.status === 'training' ? 'Training in Progress' : 'Start Training'}
-          </button>
-
-          <button
-            type="button"
-            onClick={saveCheckpoint}
-            disabled={!training}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem 1.5rem',
-              backgroundColor: iobTheme.colors.secondary.main,
-              color: theme.primary,
-              border: `2px solid ${theme.primary}`,
-              borderRadius: '0.375rem',
-              cursor: training ? 'pointer' : 'not-allowed',
-              fontWeight: '600',
-            }}
-          >
-            <Download size={16} />
-            Save Checkpoint
-          </button>
-        </div>
-      </form>
-
-      {/* Previous Trainings */}
-      <div
-        style={{
-          backgroundColor: iobTheme.colors.secondary.main,
-          borderRadius: '0.75rem',
-          padding: '1.5rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: '1.25rem',
-            fontWeight: '600',
-            marginBottom: '1rem',
-            color: theme.primary,
-          }}
-        >
-          Training History
-        </h2>
-
-        {trainings.length > 0 ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `2px solid ${iobTheme.colors.gray[200]}` }}>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Training ID</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Status</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Started</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', fontWeight: '600' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trainings.slice(0, 10).map((train, idx) => (
-                  <tr key={idx} style={{ borderBottom: `1px solid ${iobTheme.colors.gray[200]}` }}>
-                    <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                      {train.training_id?.slice(0, 20)}...
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span
-                        style={{
-                          backgroundColor:
-                            train.status === 'completed'
-                              ? theme.completed + '20'
-                              : theme.training + '20',
-                          color: train.status === 'completed' ? theme.completed : theme.training,
-                          padding: '0.25rem 0.5rem',
-                          borderRadius: '0.25rem',
-                          fontSize: '0.875rem',
-                          fontWeight: '600',
-                        }}
-                      >
-                        {train.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>
-                      {new Date(train.started_at).toLocaleString()}
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <button
-                        onClick={() => connectToTraining(train.training_id)}
-                        style={{
-                          padding: '0.25rem 0.75rem',
-                          backgroundColor: theme.primary,
-                          color: iobTheme.colors.secondary.main,
-                          border: 'none',
-                          borderRadius: '0.25rem',
-                          cursor: 'pointer',
-                          fontSize: '0.875rem',
-                          fontWeight: '500',
-                        }}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p style={{ color: iobTheme.colors.gray[600], textAlign: 'center', padding: '2rem' }}>
-            No training history available
+          <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-red-500 to-purple-600 bg-clip-text text-transparent">
+            HYDRA AI Red-Team
+          </h1>
+          <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
+            Advanced adversarial AI training system. Watch AI defenders battle against AI attackers to strengthen
+            financial crime detection capabilities.
           </p>
-        )}
+          <ProgressFlow activeStep="hydra" />
+        </div>
+
+        {/* Battle Arena */}
+        <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-8 mb-8 border border-red-500/20">
+          <h3 className="text-2xl font-semibold mb-6 text-red-500 text-center">⚔️ AI Battle Arena</h3>
+
+          {/* How HYDRA Works */}
+          <div className="bg-[#0a0a0f]/40 rounded-xl p-6 mb-8">
+            <h4 className="text-lg font-semibold mb-4 text-[#00ff87]">🎯 How HYDRA Works</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+              {[
+                { icon: '🛡️', title: 'AI Defender', color: 'text-[#00d4ff]', desc: 'Protects against financial crime by detecting suspicious patterns using advanced ML algorithms.' },
+                { icon: '⚔️', title: 'AI Attacker', color: 'text-red-400', desc: 'Generates sophisticated adversarial patterns to test and improve defense systems.' },
+                { icon: '🧠', title: 'Battle Mode', color: 'text-purple-400', desc: 'Watch AI systems compete in real-time to improve detection through adversarial training.' },
+              ].map(({ icon, title, color, desc }) => (
+                <div key={title} className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center text-2xl">
+                    {icon}
+                  </div>
+                  <h5 className={`font-semibold ${color} mb-2`}>{title}</h5>
+                  <p className="text-gray-300">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <button
+              onClick={battleActive ? stopBattle : startBattle}
+              className={`px-6 py-3 font-semibold rounded-lg text-white transition-all ${
+                battleActive
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-gradient-to-r from-green-500 to-emerald-500 animate-pulse'
+              }`}
+            >
+              {battleActive ? '⏹️ Stop Battle' : '⚔️ Start Battle'}
+            </button>
+            <button
+              onClick={runSimulation}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors"
+            >
+              🧪 Run Simulation
+            </button>
+            <button
+              onClick={exportResults}
+              disabled={exporting}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+            >
+              {exporting ? 'Exporting…' : '📄 Export Results'}
+            </button>
+          </div>
+
+          <BattleArenaView ref={battleRef} containerId="ai-battle" />
+        </div>
+
+        {/* Metrics + Intelligence */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-8">
+          <BattleMetrics metrics={metrics} />
+
+          {/* AI Battle Intelligence */}
+          <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 lg:col-span-2 xl:col-span-3">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-purple-500 flex items-center">
+                🧠 AI Battle Intelligence
+                <span className="ml-2 text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
+                  Advanced Analytics
+                </span>
+              </h3>
+              <button
+                onClick={getBattleInsights}
+                disabled={analysing}
+                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all text-sm disabled:opacity-50"
+              >
+                {analysing ? 'Analyzing…' : '📊 Analyze Performance'}
+              </button>
+            </div>
+
+            <div id="ai-battle-analysis">
+              {analysing && (
+                <div className="text-center py-12 text-gray-400 animate-pulse">Running analysis…</div>
+              )}
+              {!analysing && !battleAnalysis && (
+                <div className="text-center py-12 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-2xl animate-pulse">
+                    🧠
+                  </div>
+                  <h4 className="text-lg font-semibold text-purple-400 mb-2">AI Analysis Ready</h4>
+                  <p className="text-gray-400 max-w-md mx-auto">
+                    Run battles or simulations to unlock advanced AI-powered insights about your defence system.
+                  </p>
+                </div>
+              )}
+              {battleAnalysis && (
+                <div
+                  className="text-gray-300 space-y-4"
+                  dangerouslySetInnerHTML={{ __html: battleAnalysis }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => navigate('/autosar')}
+            className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            ← Back to Auto-SAR
+          </button>
+          <button
+            onClick={handleComplete}
+            className="px-8 py-3 bg-gradient-to-r from-[#00ff87] to-[#00d4ff] text-[#0a0a0f] font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all"
+          >
+            Complete Analysis →
+          </button>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+/* ── Helpers ── */
+function generateMockInsights(metrics) {
+  const rate = metrics.detectionRate
+  return `
+    <div class="space-y-4">
+      <div class="bg-purple-500/10 rounded-lg p-4 border border-purple-500/30">
+        <h5 class="text-purple-400 font-semibold mb-2">🎯 Performance Summary</h5>
+        <p>Defender win rate: <strong class="text-[#00d4ff]">${metrics.defenderWins}</strong> / ${metrics.totalBattles} battles &nbsp;|&nbsp; Detection rate: <strong class="text-[#00ff87]">${rate}%</strong></p>
+      </div>
+      <div class="bg-red-500/10 rounded-lg p-4 border border-red-500/30">
+        <h5 class="text-red-400 font-semibold mb-2">⚔️ Attack Analysis</h5>
+        <p>Attacker wins: <strong class="text-red-400">${metrics.attackerWins}</strong>. Adversarial patterns leveraged structuring & rapid-sequence layering techniques.</p>
+      </div>
+      <div class="bg-green-500/10 rounded-lg p-4 border border-green-500/30">
+        <h5 class="text-green-400 font-semibold mb-2">✅ Recommendations</h5>
+        <ul class="list-disc list-inside space-y-1 text-sm">
+          <li>Retrain detection model with newly identified adversarial patterns</li>
+          <li>Increase threshold sensitivity for sub-$10 000 structured transactions</li>
+          <li>Deploy updated model to production monitoring pipeline</li>
+        </ul>
       </div>
     </div>
-  );
-};
-
-export default HydraPage;
+  `
+}
