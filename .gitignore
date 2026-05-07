@@ -8,6 +8,7 @@
 *.mp4
 *.env
 *.json
+*.json
 
 # ============================================================
 # PYTHON & VIRTUAL ENVIRONMENTS
