@@ -37,6 +37,23 @@ backend/
 └── README.md                     # This file
 ```
 
+## Quick Start
+
+Get the API running in 3 steps:
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Generate sample data for testing
+python -m scripts.generate_sample_data
+
+# 3. Run the server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Then visit [http://localhost:8000/docs](http://localhost:8000/docs) to explore the API.
+
 ## Installation
 
 1. **Create virtual environment**:
@@ -57,7 +74,15 @@ backend/
    # Edit .env with your Supabase credentials
    ```
 
-4. **Run the server**:
+4. **Generate sample data** (optional, for testing):
+   ```bash
+   python -m scripts.generate_sample_data
+   ```
+   This generates:
+   - `backend/data/transactions.csv` - 500 sample transactions with realistic Indian banking data
+   - `backend/data/account_features.csv` - 50 sample account risk profiles
+
+5. **Run the server**:
    ```bash
    python -m app.main
    # or

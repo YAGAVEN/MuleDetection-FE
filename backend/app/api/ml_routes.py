@@ -4,15 +4,15 @@ from fastapi.responses import FileResponse
 from typing import List, Optional
 from datetime import datetime
 
-from app.schemas import (
+from ..schemas import (
     MLPredictionRequest, MLPredictionResponse,
     BatchMLRequest, BatchMLResponse,
     FeatureEngineeringRequest, FeatureEngineeringResponse,
     SHAPExplanationResponse, SHAPBatchExplanationRequest, SHAPBatchExplanationResponse
 )
-from app.services.ml_models import get_model_manager
-from app.services.feature_engineering import FeatureEngineer
-from app.database import get_db_service
+from ..services.ml_models import get_model_manager
+from ..services.feature_engineering import FeatureEngineer
+from ..database import get_db_service
 
 router = APIRouter(prefix="/api/v1/ml", tags=["ML Predictions"])
 
