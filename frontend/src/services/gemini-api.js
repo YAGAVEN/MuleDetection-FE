@@ -21,9 +21,9 @@ class GeminiAPI {
     }
 
     getApiKey() {
-        // Use the configured API key
-        const configuredKey = 'AIzaSyBu_3HVHUojFWJgK_APYx9h-4CkJJ-XXVY';
-        return localStorage.getItem('gemini_api_key') || configuredKey;
+        // Use environment variable first, then localStorage, then empty
+        const envKey = import.meta.env.VITE_GEMINI_API_KEY ?? '';
+        return localStorage.getItem('gemini_api_key') || envKey;
     }
 
     setApiKey(apiKey) {

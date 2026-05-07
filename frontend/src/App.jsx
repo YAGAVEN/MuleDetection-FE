@@ -23,8 +23,8 @@ export default function App() {
           <Route path="/autosar" element={<ProtectedRoute><AutoSARPage /></ProtectedRoute>} />
           <Route path="/hydra" element={<ProtectedRoute><HydraPage /></ProtectedRoute>} />
           <Route path="/mule" element={<ProtectedRoute><MulePage /></ProtectedRoute>} />
-          <Route path="/" element={<Navigate to="/chronos" replace />} />
-          <Route path="*" element={<Navigate to="/chronos" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

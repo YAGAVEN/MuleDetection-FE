@@ -125,13 +125,28 @@ export default function ChronosPage() {
         </div>
       `
       setInsights([insightHtml])
-    } catch {
-      setInsights([`
-        <div class="bg-white/5 border border-white/10 rounded-lg p-6 text-center">
-          <div class="text-gray-400 mb-2">AI Analysis Unavailable</div>
-          <p class="text-sm text-gray-500">Demo mode - Connect to AI service for enhanced insights.</p>
-        </div>
-      `])
+    } catch (error) {
+      // Check if this is a backend connection error
+      const isBackendError = error?.message?.includes('Failed to fetch') || 
+                             error?.message?.includes('fetch') ||
+                             error?.response?.status === 0;
+      
+      if (isBackendError) {
+        setInsights([`
+          <div class="bg-[#FF3333]/10 border border-[#FF3333]/30 rounded-lg p-6">
+            <div class="text-[#FF3333] font-semibold mb-2">Backend Unavailable</div>
+            <p class="text-sm text-gray-300">Start FastAPI server on port 8000</p>
+            <p class="text-xs text-gray-500 mt-2">cd backend && uvicorn app.main:app --reload --port 8000</p>
+          </div>
+        `])
+      } else {
+        setInsights([`
+          <div class="bg-white/5 border border-white/10 rounded-lg p-6">
+            <div class="text-gray-400 font-semibold mb-2">Analysis Unavailable</div>
+            <p class="text-sm text-gray-500">Unable to generate insights at this time.</p>
+          </div>
+        `])
+      }
     } finally {
       setInsightsLoading(false)
     }

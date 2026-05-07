@@ -5,10 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from app.database import init_supabase, get_db_service
-from app.services.ml_models import get_model_manager
-from app.services.gan_training import get_gan_service
-from app.api import health_routes, ml_routes, db_routes, gan_routes, auth_routes
+from .database import init_supabase, get_db_service
+from .services.ml_models import get_model_manager
+from .services.gan_training import get_gan_service
+from .api import health_routes, ml_routes, db_routes, gan_routes, auth_routes, chronos_routes, mule_routes, hydra_routes
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +26,12 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this based on your frontend domain
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:5001",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -77,6 +82,9 @@ app.include_router(auth_routes.router)
 app.include_router(ml_routes.router)
 app.include_router(db_routes.router)
 app.include_router(gan_routes.router)
+app.include_router(chronos_routes.router)
+app.include_router(mule_routes.router)
+app.include_router(hydra_routes.router)
 
 
 # Global exception handler

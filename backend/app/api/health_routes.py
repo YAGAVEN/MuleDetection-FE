@@ -2,9 +2,9 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
-from app.schemas import HealthCheckResponse
-from app.database import get_db_service
-from app.services.ml_models import get_model_manager
+from ..schemas import HealthCheckResponse
+from ..database import get_db_service
+from ..services.ml_models import get_model_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Health"])
 
