@@ -17,7 +17,7 @@ export default function AIInsightsPanel({ insights, loading, onGenerate }) {
             <div className="h-6 bg-gray-600 rounded w-3/4" />
             <div className="h-6 bg-gray-600 rounded w-1/2" />
           </div>
-        ) : insights.length > 0 ? (
+        ) : insights && insights.length > 0 ? (
           insights.map((insight, i) => (
             <div
               key={i}
@@ -26,8 +26,9 @@ export default function AIInsightsPanel({ insights, loading, onGenerate }) {
             />
           ))
         ) : (
-          <div className="text-gray-400 text-center py-6">
-            Click "Generate AI Insights" to analyse transaction patterns.
+          <div className="bg-[#0a0a0f]/40 rounded-xl p-6 border border-[#00ff87]/10 text-center">
+            <div className="text-gray-400 mb-2">No Insights Generated</div>
+            <p className="text-sm text-gray-500">Click "Generate AI Insights" to analyze transaction patterns.</p>
           </div>
         )}
       </div>

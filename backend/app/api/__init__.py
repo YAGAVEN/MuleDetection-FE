@@ -1,2 +1,3 @@
 """API package"""
-from app.api import health_routes, ml_routes, db_routes, gan_routes, auth_routes
+from . import health_routes, ml_routes, db_routes, gan_routes, auth_routes, chronos_routes, mule_routes, hydra_routes
+
