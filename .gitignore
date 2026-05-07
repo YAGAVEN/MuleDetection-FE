@@ -59,6 +59,13 @@ pip-delete-this-directory.txt
 .Trashes
 ehthumbs.db
 Thumbs.db
+# ============================================================
+# BACKEND GENERATED ARTIFACTS
+# ============================================================
+backend/.venv/
+backend/logs/
+backend/ml_results/
+backend/.env
 
 # ============================================================
 # JUPYTER NOTEBOOKS
