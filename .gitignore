@@ -7,6 +7,7 @@
 *.joblib
 *.mp4
 *.env
+*.json
 
 # ============================================================
 # PYTHON & VIRTUAL ENVIRONMENTS
@@ -82,12 +83,6 @@ backend/ml_results/
 backend/.env
 
 # ============================================================
-# FRONTEND GENERATED ARTIFACTS & ENV
-# ============================================================
-frontend/.env
-frontend-react/.env
-
-# ============================================================
 # KEEP THESE FOLDERS & FILES (explicitly included)
 # ============================================================
 # ! - means "do NOT ignore"
@@ -99,4 +94,3 @@ frontend-react/.env
 !submissions/
 
 # Generated reports and submissions
-
