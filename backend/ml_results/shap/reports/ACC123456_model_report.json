@@ -1,7 +1,7 @@
 {
   "account_id": "ACC123456",
   "report_title": "SHAP Model Comparison Report for ACC123456",
-  "report_description": "Comprehensive analysis of LightGBM, GNN, and Ensemble models with feature contributions",
+  "report_description": "Comparative analysis of LightGBM and GNN models with feature contributions",
   "lgbm_explanation": {
     "model_name": "LightGBM",
     "prediction_score": 90.0,
@@ -210,7 +210,7 @@
       }
     },
     "model_version": "lgbm_v1.0",
-    "timestamp": "2026-05-06T18:58:46.436046"
+    "timestamp": "2026-05-07T00:59:06.036499"
   },
   "gnn_explanation": {
     "model_name": "GNN",
@@ -420,217 +420,7 @@
       }
     },
     "model_version": "gnn_v1.0",
-    "timestamp": "2026-05-06T18:58:46.436115"
-  },
-  "ensemble_explanation": {
-    "model_name": "Ensemble",
-    "prediction_score": 76.0,
-    "risk_level": "CRITICAL",
-    "base_value": 50.0,
-    "top_contributing_features": [
-      {
-        "feature_name": "total_credit",
-        "shap_value": 13000.0,
-        "base_value": 50.0,
-        "contribution_percentage": 78.27198867974144
-      },
-      {
-        "feature_name": "monthly_cv",
-        "shap_value": 2600.0,
-        "base_value": 50.0,
-        "contribution_percentage": 15.654397735948287
-      },
-      {
-        "feature_name": "net_flow",
-        "shap_value": 780.0,
-        "base_value": 50.0,
-        "contribution_percentage": 4.696319320784486
-      },
-      {
-        "feature_name": "avg_txn_amount",
-        "shap_value": 218.4,
-        "base_value": 50.0,
-        "contribution_percentage": 1.314969409819656
-      },
-      {
-        "feature_name": "sender_concentration",
-        "shap_value": 2.4492000000000003,
-        "base_value": 50.0,
-        "contribution_percentage": 0.014746442667263287
-      },
-      {
-        "feature_name": "account_age_days",
-        "shap_value": 1.898,
-        "base_value": 50.0,
-        "contribution_percentage": 0.01142771034724225
-      },
-      {
-        "feature_name": "structuring_40k_50k_pct",
-        "shap_value": 1.7745000000000002,
-        "base_value": 50.0,
-        "contribution_percentage": 0.010684126454784707
-      },
-      {
-        "feature_name": "amt_exact_50k_pct",
-        "shap_value": 1.6317599999999999,
-        "base_value": 50.0,
-        "contribution_percentage": 0.009824700019081143
-      },
-      {
-        "feature_name": "days_since_kyc",
-        "shap_value": 0.9360000000000002,
-        "base_value": 50.0,
-        "contribution_percentage": 0.005635583184941384
-      },
-      {
-        "feature_name": "pct_within_6h",
-        "shap_value": 0.9152,
-        "base_value": 50.0,
-        "contribution_percentage": 0.005510348003053797
-      }
-    ],
-    "feature_analysis": {
-      "account_age_days": {
-        "feature_name": "account_age_days",
-        "shap_value": 1.898,
-        "base_value": 50.0,
-        "contribution_percentage": 0.01142771034724225
-      },
-      "amt_exact_50k_pct": {
-        "feature_name": "amt_exact_50k_pct",
-        "shap_value": 1.6317599999999999,
-        "base_value": 50.0,
-        "contribution_percentage": 0.009824700019081143
-      },
-      "avg_balance_negative": {
-        "feature_name": "avg_balance_negative",
-        "shap_value": 0.0,
-        "base_value": 50.0,
-        "contribution_percentage": 0.0
-      },
-      "avg_txn_amount": {
-        "feature_name": "avg_txn_amount",
-        "shap_value": 218.4,
-        "base_value": 50.0,
-        "contribution_percentage": 1.314969409819656
-      },
-      "ch_atw_pct": {
-        "feature_name": "ch_atw_pct",
-        "shap_value": 0.10556,
-        "base_value": 50.0,
-        "contribution_percentage": 0.0006355685480795005
-      },
-      "ch_chq_pct": {
-        "feature_name": "ch_chq_pct",
-        "shap_value": 0.04524,
-        "base_value": 50.0,
-        "contribution_percentage": 0.00027238652060550023
-      },
-      "ch_ntd_pct": {
-        "feature_name": "ch_ntd_pct",
-        "shap_value": 0.054599999999999996,
-        "base_value": 50.0,
-        "contribution_percentage": 0.000328742352454914
-      },
-      "channel_entropy": {
-        "feature_name": "channel_entropy",
-        "shap_value": 0.05823999999999999,
-        "base_value": 50.0,
-        "contribution_percentage": 0.00035065850928524153
-      },
-      "credit_debit_ratio": {
-        "feature_name": "credit_debit_ratio",
-        "shap_value": 0.02496,
-        "base_value": 50.0,
-        "contribution_percentage": 0.00015028221826510354
-      },
-      "days_since_kyc": {
-        "feature_name": "days_since_kyc",
-        "shap_value": 0.9360000000000002,
-        "base_value": 50.0,
-        "contribution_percentage": 0.005635583184941384
-      },
-      "fan_in_ratio": {
-        "feature_name": "fan_in_ratio",
-        "shap_value": 0.00884,
-        "base_value": 50.0,
-        "contribution_percentage": 5.3224952302224176e-05
-      },
-      "is_frozen": {
-        "feature_name": "is_frozen",
-        "shap_value": 0.0,
-        "base_value": 50.0,
-        "contribution_percentage": 0.0
-      },
-      "kyc_doc_count": {
-        "feature_name": "kyc_doc_count",
-        "shap_value": 0.0156,
-        "base_value": 50.0,
-        "contribution_percentage": 9.392638641568971e-05
-      },
-      "kyc_non_compliant": {
-        "feature_name": "kyc_non_compliant",
-        "shap_value": 0.0,
-        "base_value": 50.0,
-        "contribution_percentage": 0.0
-      },
-      "mean_passthrough_hours": {
-        "feature_name": "mean_passthrough_hours",
-        "shap_value": 0.11699999999999999,
-        "base_value": 50.0,
-        "contribution_percentage": 0.0007044478981176729
-      },
-      "mobile_spike_ratio": {
-        "feature_name": "mobile_spike_ratio",
-        "shap_value": 0.043680000000000004,
-        "base_value": 50.0,
-        "contribution_percentage": 0.00026299388196393124
-      },
-      "monthly_cv": {
-        "feature_name": "monthly_cv",
-        "shap_value": 2600.0,
-        "base_value": 50.0,
-        "contribution_percentage": 15.654397735948287
-      },
-      "net_flow": {
-        "feature_name": "net_flow",
-        "shap_value": 780.0,
-        "base_value": 50.0,
-        "contribution_percentage": 4.696319320784486
-      },
-      "pct_within_6h": {
-        "feature_name": "pct_within_6h",
-        "shap_value": 0.9152,
-        "base_value": 50.0,
-        "contribution_percentage": 0.005510348003053797
-      },
-      "sender_concentration": {
-        "feature_name": "sender_concentration",
-        "shap_value": 2.4492000000000003,
-        "base_value": 50.0,
-        "contribution_percentage": 0.014746442667263287
-      },
-      "structuring_40k_50k_pct": {
-        "feature_name": "structuring_40k_50k_pct",
-        "shap_value": 1.7745000000000002,
-        "base_value": 50.0,
-        "contribution_percentage": 0.010684126454784707
-      },
-      "total_credit": {
-        "feature_name": "total_credit",
-        "shap_value": 13000.0,
-        "base_value": 50.0,
-        "contribution_percentage": 78.27198867974144
-      },
-      "unique_counterparties": {
-        "feature_name": "unique_counterparties",
-        "shap_value": 0.273,
-        "base_value": 50.0,
-        "contribution_percentage": 0.0016437117622745702
-      }
-    },
-    "model_version": "ensemble_v1.0",
-    "timestamp": "2026-05-06T18:58:46.436232"
+    "timestamp": "2026-05-07T00:59:06.036556"
   },
   "lgbm_vs_gnn": {
     "model_1": "LightGBM",
@@ -640,40 +430,12 @@
     "disagreeing_features": [],
     "average_feature_weight_diff": 0.012142016269422235
   },
-  "lgbm_vs_ensemble": {
-    "model_1": "LightGBM",
-    "model_2": "Ensemble",
-    "score_difference": 14.0,
-    "agreement_percentage": 100.0,
-    "disagreeing_features": [],
-    "average_feature_weight_diff": 0.0
-  },
-  "gnn_vs_ensemble": {
-    "model_1": "GNN",
-    "model_2": "Ensemble",
-    "score_difference": 21.0,
-    "agreement_percentage": 100.0,
-    "disagreeing_features": [],
-    "average_feature_weight_diff": 0.012142016269422235
-  },
   "consensus_features": [
-    {
-      "feature_name": "monthly_cv",
-      "shap_value": 4000.0,
-      "base_value": 50.0,
-      "contribution_percentage": 15.654397735948287
-    },
     {
       "feature_name": "total_credit",
       "shap_value": 20000.0,
       "base_value": 50.0,
       "contribution_percentage": 78.27198867974144
-    },
-    {
-      "feature_name": "sender_concentration",
-      "shap_value": 3.7680000000000002,
-      "base_value": 50.0,
-      "contribution_percentage": 0.014746442667263287
     },
     {
       "feature_name": "account_age_days",
@@ -682,19 +444,37 @@
       "contribution_percentage": 0.01142771034724225
     },
     {
-      "feature_name": "avg_txn_amount",
-      "shap_value": 336.0,
+      "feature_name": "monthly_cv",
+      "shap_value": 4000.0,
       "base_value": 50.0,
-      "contribution_percentage": 1.314969409819656
+      "contribution_percentage": 15.654397735948287
     },
     {
       "feature_name": "net_flow",
       "shap_value": 1200.0,
       "base_value": 50.0,
       "contribution_percentage": 4.696319320784486
+    },
+    {
+      "feature_name": "sender_concentration",
+      "shap_value": 3.7680000000000002,
+      "base_value": 50.0,
+      "contribution_percentage": 0.014746442667263287
+    },
+    {
+      "feature_name": "avg_txn_amount",
+      "shap_value": 336.0,
+      "base_value": 50.0,
+      "contribution_percentage": 1.314969409819656
     }
   ],
   "conflicting_features": [
+    {
+      "feature_name": "structuring_40k_50k_pct",
+      "shap_value": 2.7300000000000004,
+      "base_value": 50.0,
+      "contribution_percentage": 0.010684126454784709
+    },
     {
       "feature_name": "unique_counterparties",
       "shap_value": 0,
@@ -704,14 +484,14 @@
   ],
   "overall_risk_assessment": "CRITICAL - Immediate action required",
   "recommendations": [
-    "\ud83d\udea8 CRITICAL: Immediate investigation recommended. Account exhibits multiple high-risk indicators.",
-    "Block transactions until suspicious activity is resolved.",
-    "\u2713 Strong consensus: 6 features agree across all models.",
+    "\u26a0\ufe0f  HIGH RISK: Enhanced due diligence recommended.",
+    "Monitor account for structuring patterns and rapid transactions.",
+    "\u2713 Strong consensus: 6 features agree across both models.",
     "High confidence in this assessment.",
     "Key risk indicators: Total Credit, Monthly Cv, Net Flow",
     "Models differ by 35.0 points - suggests mixed signals.",
     "Review both transaction patterns (LightGBM) and network topology (GNN)."
   ],
-  "report_generated_at": "2026-05-06T18:58:46.439077",
+  "report_generated_at": "2026-05-07T00:59:06.039423",
   "shap_version": "shap_v1.0"
 }

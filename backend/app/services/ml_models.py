@@ -629,23 +629,21 @@ class SHAPExplainer:
             
             # Compare models
             lgbm_vs_gnn = self._compare_models(lgbm_exp, gnn_exp, "LightGBM", "GNN")
-            lgbm_vs_ensemble = self._compare_models(lgbm_exp, ensemble_exp, "LightGBM", "Ensemble")
-            gnn_vs_ensemble = self._compare_models(gnn_exp, ensemble_exp, "GNN", "Ensemble")
             
-            # Identify consensus and conflicting features
-            consensus, conflicting = self._analyze_feature_agreement(
-                lgbm_exp, gnn_exp, ensemble_exp
+            # Identify consensus and conflicting features (only LGBM and GNN)
+            consensus, conflicting = self._analyze_feature_agreement_dual(
+                lgbm_exp, gnn_exp
             )
             
             # Generate recommendations
-            recommendations = self._generate_recommendations(
-                scores, consensus, conflicting, lgbm_exp, gnn_exp, ensemble_exp
+            recommendations = self._generate_recommendations_dual(
+                scores, consensus, conflicting, lgbm_exp, gnn_exp
             )
             
             report = {
                 "account_id": account_id,
                 "report_title": f"SHAP Model Comparison Report for {account_id}",
-                "report_description": "Comprehensive analysis of LightGBM, GNN, and Ensemble models with feature contributions",
+                "report_description": "Comparative analysis of LightGBM and GNN models with feature contributions",
                 
                 # Individual model explanations
                 "lgbm_explanation": {
@@ -674,23 +672,8 @@ class SHAPExplainer:
                     "timestamp": gnn_exp['timestamp']
                 },
                 
-                "ensemble_explanation": {
-                    "model_name": "Ensemble",
-                    "prediction_score": ensemble_exp['prediction_score'],
-                    "risk_level": self._get_risk_level(ensemble_exp['prediction_score']),
-                    "base_value": ensemble_exp['base_value'],
-                    "top_contributing_features": ensemble_exp['top_positive_features'],
-                    "feature_analysis": {
-                        c['feature_name']: c for c in ensemble_exp['feature_contributions']
-                    },
-                    "model_version": model_manager.ensemble.model_version,
-                    "timestamp": ensemble_exp['timestamp']
-                },
-                
-                # Model comparisons
+                # Model comparison (only LightGBM vs GNN)
                 "lgbm_vs_gnn": lgbm_vs_gnn,
-                "lgbm_vs_ensemble": lgbm_vs_ensemble,
-                "gnn_vs_ensemble": gnn_vs_ensemble,
                 
                 # Summary
                 "consensus_features": consensus,
@@ -790,6 +773,98 @@ class SHAPExplainer:
         
         return consensus_features, conflicting_features
 
+    def _analyze_feature_agreement_dual(
+        self,
+        lgbm_exp: Dict[str, Any],
+        gnn_exp: Dict[str, Any]
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Identify consensus and conflicting features between LightGBM and GNN only"""
+        
+        lgbm_top = set(f['feature_name'] for f in lgbm_exp['top_contributing_features'][:7])
+        gnn_top = set(f['feature_name'] for f in gnn_exp['top_contributing_features'][:7])
+        
+        # Consensus: features in both models
+        consensus_names = lgbm_top.intersection(gnn_top)
+        
+        # Conflicting: features only in one model
+        all_features = lgbm_top.union(gnn_top)
+        conflicting_names = [f for f in all_features if f not in consensus_names]
+        
+        # Build feature objects
+        consensus_features = [
+            {
+                "feature_name": f,
+                "shap_value": next((c['shap_value'] for c in lgbm_exp['top_contributing_features'] if c['feature_name'] == f), 0),
+                "base_value": 50.0,
+                "contribution_percentage": next((c['contribution_percentage'] for c in lgbm_exp['top_contributing_features'] if c['feature_name'] == f), 0)
+            }
+            for f in consensus_names
+        ]
+        
+        conflicting_features = [
+            {
+                "feature_name": f,
+                "shap_value": next((c['shap_value'] for c in lgbm_exp['top_contributing_features'] if c['feature_name'] == f), 0),
+                "base_value": 50.0,
+                "contribution_percentage": next((c['contribution_percentage'] for c in lgbm_exp['top_contributing_features'] if c['feature_name'] == f), 0)
+            }
+            for f in conflicting_names
+        ]
+        
+        return consensus_features, conflicting_features
+
+    def _generate_recommendations_dual(
+        self,
+        scores: Dict[str, float],
+        consensus: List[Dict[str, Any]],
+        conflicting: List[Dict[str, Any]],
+        lgbm_exp: Dict[str, Any],
+        gnn_exp: Dict[str, Any]
+    ) -> List[str]:
+        """Generate actionable recommendations based on LightGBM and GNN analysis"""
+        
+        recommendations = []
+        
+        # Use average of the two models for risk assessment
+        avg_score = (scores['lgbm_score'] + scores['gnn_score']) / 2
+        
+        # Risk-based recommendations
+        if avg_score >= 75:
+            recommendations.append("🚨 CRITICAL: Immediate investigation recommended. Account exhibits multiple high-risk indicators.")
+            recommendations.append("Block transactions until suspicious activity is resolved.")
+        elif avg_score >= 50:
+            recommendations.append("⚠️  HIGH RISK: Enhanced due diligence recommended.")
+            recommendations.append("Monitor account for structuring patterns and rapid transactions.")
+        elif avg_score >= 25:
+            recommendations.append("⚡ MEDIUM RISK: Standard review procedures should be applied.")
+            recommendations.append("Periodic monitoring recommended.")
+        else:
+            recommendations.append("✅ LOW RISK: Account appears legitimate based on transaction patterns.")
+        
+        # Model agreement recommendations
+        if len(consensus) >= 4:
+            recommendations.append(f"✓ Strong consensus: {len(consensus)} features agree across both models.")
+            recommendations.append("High confidence in this assessment.")
+        elif len(conflicting) >= 3:
+            recommendations.append(f"⚠️  Models disagree on {len(conflicting)} features.")
+            recommendations.append("Consider manual review to resolve conflicting signals.")
+        
+        # Feature-specific recommendations
+        top_features = lgbm_exp['top_contributing_features'][:3]
+        if top_features:
+            feature_list = ", ".join([f['feature_name'].replace('_', ' ').title() for f in top_features])
+            recommendations.append(f"Key risk indicators: {feature_list}")
+        
+        # Score spread analysis
+        score_spread = abs(scores['lgbm_score'] - scores['gnn_score'])
+        if score_spread > 20:
+            recommendations.append(f"Models differ by {score_spread:.1f} points - suggests mixed signals.")
+            recommendations.append("Review both transaction patterns (LightGBM) and network topology (GNN).")
+        else:
+            recommendations.append(f"Models are aligned (difference: {score_spread:.1f} points).")
+        
+        return recommendations
+
     def _generate_recommendations(
         self,
         scores: Dict[str, float],
@@ -876,13 +951,13 @@ class SHAPExplainer:
             json.dump(report, f, indent=2)
 
     def generate_html_pdf_report(self, account_id: str, report_data: Dict[str, Any]) -> str:
-        """Generate PDF from SHAP model report using reportlab"""
+        """Generate structured PDF from SHAP model report using reportlab"""
         try:
             from reportlab.lib.pagesizes import letter
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import inch
-            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, HRFlowable
             from reportlab.lib import colors
         except ImportError:
             raise ImportError("reportlab not installed. Run: pip install reportlab")
@@ -904,10 +979,11 @@ class SHAPExplainer:
             title_style = ParagraphStyle(
                 'CustomTitle',
                 parent=styles['Heading1'],
-                fontSize=22,
+                fontSize=24,
                 textColor=colors.HexColor('#1f77b4'),
                 spaceAfter=6,
-                alignment=TA_CENTER
+                alignment=TA_CENTER,
+                fontName='Helvetica-Bold'
             )
             subtitle_style = ParagraphStyle(
                 'Subtitle',
@@ -917,37 +993,64 @@ class SHAPExplainer:
                 alignment=TA_CENTER,
                 spaceAfter=20
             )
-            heading2_style = ParagraphStyle(
-                'Heading2Custom',
+            section_heading_style = ParagraphStyle(
+                'SectionHeading',
                 parent=styles['Heading2'],
                 fontSize=14,
-                textColor=colors.HexColor('#2ca02c'),
-                spaceAfter=10,
-                spaceBefore=10
+                textColor=colors.white,
+                backColor=colors.HexColor('#1f77b4'),
+                spaceAfter=12,
+                spaceBefore=12,
+                leftIndent=6,
+                rightIndent=6,
+                fontName='Helvetica-Bold'
+            )
+            heading3_style = ParagraphStyle(
+                'Heading3Custom',
+                parent=styles['Heading3'],
+                fontSize=11,
+                textColor=colors.HexColor('#1f77b4'),
+                spaceAfter=8,
+                spaceBefore=8,
+                fontName='Helvetica-Bold'
             )
             
+            # ============= PAGE 1: EXECUTIVE SUMMARY =============
+            
             # Title
-            elements.append(Paragraph("🔍 SHAP Model Explainability Report", title_style))
+            elements.append(Paragraph("SHAP Model Explainability Report", title_style))
             elements.append(Paragraph(f"Account ID: <b>{account_id}</b> | Generated: {report_data['report_generated_at'][:10]}", 
                                     subtitle_style))
+            elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#1f77b4')))
+            elements.append(Spacer(1, 0.15*inch))
             
-            # Overall Risk Assessment
+            # Overall Risk Assessment - Prominent Display
             risk_level = report_data['overall_risk_assessment']
             risk_color_map = {
-                'CRITICAL': '#d62728',
-                'HIGH': '#ff7f0e',
-                'MEDIUM': '#2ca02c',
-                'LOW': '#1f77b4'
+                'CRITICAL': ('#d62728', '■'),
+                'HIGH': ('#ff7f0e', '●'),
+                'MEDIUM': ('#2ca02c', '▲'),
+                'LOW': ('#1f77b4', '◆')
             }
-            risk_color_hex = risk_color_map.get(risk_level, '#000000')
+            risk_color_hex, risk_icon = risk_color_map.get(risk_level.split(' ')[0], ('#000000', '•'))
             
-            elements.append(Paragraph("Overall Risk Assessment", heading2_style))
-            elements.append(Paragraph(f"Risk Level: <font color='{risk_color_hex}'><b>{risk_level}</b></font>", 
+            elements.append(Paragraph("Overall Risk Assessment", section_heading_style))
+            elements.append(Paragraph(f"<font color='{risk_color_hex}'><font size='16'>{risk_icon}</font> <b>{risk_level}</b></font>", 
                                     styles['Normal']))
             elements.append(Spacer(1, 0.15*inch))
             
+            # Key Risk Indicators
+            elements.append(Paragraph("Key Risk Indicators", section_heading_style))
+            top_features = report_data['lgbm_explanation']['top_contributing_features'][:3]
+            indicator_text = "<br/>".join([
+                f"• <b>{f['feature_name'].replace('_', ' ').title()}</b>: {f['contribution_percentage']:.1f}% contribution"
+                for f in top_features
+            ])
+            elements.append(Paragraph(indicator_text, styles['Normal']))
+            elements.append(Spacer(1, 0.15*inch))
+            
             # Model Predictions Table
-            elements.append(Paragraph("Model Predictions", heading2_style))
+            elements.append(Paragraph("Model Predictions", section_heading_style))
             model_data = [
                 ['Model', 'Score', 'Risk Level'],
                 ['LightGBM', 
@@ -955,13 +1058,10 @@ class SHAPExplainer:
                  report_data['lgbm_explanation']['risk_level']],
                 ['GNN',
                  f"{report_data['gnn_explanation']['prediction_score']:.1f}",
-                 report_data['gnn_explanation']['risk_level']],
-                ['Ensemble',
-                 f"{report_data['ensemble_explanation']['prediction_score']:.1f}",
-                 report_data['ensemble_explanation']['risk_level']]
+                 report_data['gnn_explanation']['risk_level']]
             ]
             
-            model_table = Table(model_data, colWidths=[1.8*inch, 1.2*inch, 1.2*inch])
+            model_table = Table(model_data, colWidths=[2*inch, 1.2*inch, 1.5*inch])
             model_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f77b4')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -971,87 +1071,113 @@ class SHAPExplainer:
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f8ff')),
                 ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
-                ('FONTSIZE', (0, 1), (-1, -1), 10)
+                ('FONTSIZE', (0, 1), (-1, -1), 11),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica')
             ]))
             elements.append(model_table)
             elements.append(Spacer(1, 0.2*inch))
             
-            # Top Contributing Features
-            elements.append(Paragraph("Top Contributing Features", heading2_style))
+            # Model Agreement Summary
+            lgbm_gnn_diff = report_data['lgbm_vs_gnn']['score_difference']
+            elements.append(Paragraph("Model Agreement", section_heading_style))
+            agreement_pct = report_data['lgbm_vs_gnn']['agreement_percentage']
+            agreement_text = f"LightGBM and GNN scores differ by <b>{lgbm_gnn_diff:.1f} points</b> with <b>{agreement_pct:.0f}%</b> feature agreement."
+            if agreement_pct >= 80:
+                agreement_text += " <font color='green'><b>✓ Strong alignment</b></font>"
+            elif agreement_pct >= 50:
+                agreement_text += " <b>◆ Moderate alignment - review recommended</b>"
+            else:
+                agreement_text += " <b><font color='red'>⚠ Low alignment - manual review advised</font></b>"
+            elements.append(Paragraph(agreement_text, styles['Normal']))
+            elements.append(Spacer(1, 0.25*inch))
             
-            for model_key, model_label in [('lgbm_explanation', 'LightGBM'),
-                                           ('gnn_explanation', 'GNN'),
-                                           ('ensemble_explanation', 'Ensemble')]:
+            # ============= PAGE 2: DETAILED ANALYSIS =============
+            elements.append(PageBreak())
+            
+            # Feature Analysis by Model
+            elements.append(Paragraph("Detailed Feature Analysis", title_style))
+            elements.append(Spacer(1, 0.15*inch))
+            
+            for model_key, model_label in [('lgbm_explanation', 'LightGBM Model'),
+                                           ('gnn_explanation', 'GNN Model')]:
                 model = report_data[model_key]
-                elements.append(Paragraph(f"<b>{model_label}</b>", styles['Heading3']))
                 
-                # Features table
-                features = model['top_contributing_features'][:5]
-                feature_data = [['Feature', '% Contribution']]
-                for f in features:
+                elements.append(Paragraph(f"{model_label} Analysis", section_heading_style))
+                elements.append(Paragraph(f"<b>Risk Score:</b> {model['prediction_score']:.1f} | <b>Risk Level:</b> {model['risk_level']}", 
+                                        styles['Normal']))
+                elements.append(Spacer(1, 0.08*inch))
+                
+                # Top Features Table
+                elements.append(Paragraph("Top Contributing Features", heading3_style))
+                features = model['top_contributing_features'][:8]
+                feature_data = [['Rank', 'Feature', 'Contribution %']]
+                for idx, f in enumerate(features, 1):
                     feature_data.append([
-                        f['feature_name'],
+                        str(idx),
+                        f['feature_name'].replace('_', ' ').title(),
                         f"{f['contribution_percentage']:.1f}%"
                     ])
                 
-                feature_table = Table(feature_data, colWidths=[3*inch, 1.5*inch])
+                feature_table = Table(feature_data, colWidths=[0.6*inch, 2.8*inch, 1.2*inch])
                 feature_table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2ca02c')),
                     ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                    ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
                     ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                     ('FONTSIZE', (0, 0), (-1, -1), 9),
                     ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f9f9f9')),
                     ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
-                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6)
                 ]))
                 elements.append(feature_table)
-                elements.append(Spacer(1, 0.12*inch))
+                elements.append(Spacer(1, 0.2*inch))
             
+            # ============= PAGE 3: CONCLUSIONS & RECOMMENDATIONS =============
             elements.append(PageBreak())
             
-            # Model Comparison
-            elements.append(Paragraph("Model Comparison & Agreement", heading2_style))
+            elements.append(Paragraph("Conclusions & Recommendations", title_style))
+            elements.append(Spacer(1, 0.15*inch))
             
-            comparison_data = [
-                ['Models', 'Score Diff', 'Agreement %', 'Key Disagreement'],
-                ['LightGBM vs GNN',
-                 f"{report_data['lgbm_vs_gnn']['score_difference']:.2f}",
-                 f"{report_data['lgbm_vs_gnn']['agreement_percentage']:.0f}%",
-                 ', '.join(report_data['lgbm_vs_gnn']['disagreeing_features'][:1]) or 'None'],
-                ['LightGBM vs Ensemble',
-                 f"{report_data['lgbm_vs_ensemble']['score_difference']:.2f}",
-                 f"{report_data['lgbm_vs_ensemble']['agreement_percentage']:.0f}%",
-                 ', '.join(report_data['lgbm_vs_ensemble']['disagreeing_features'][:1]) or 'None'],
-                ['GNN vs Ensemble',
-                 f"{report_data['gnn_vs_ensemble']['score_difference']:.2f}",
-                 f"{report_data['gnn_vs_ensemble']['agreement_percentage']:.0f}%",
-                 ', '.join(report_data['gnn_vs_ensemble']['disagreeing_features'][:1]) or 'None']
-            ]
+            # Executive Recommendations
+            elements.append(Paragraph("Key Findings", section_heading_style))
             
-            comp_table = Table(comparison_data, colWidths=[1.5*inch, 1*inch, 1.2*inch, 1.8*inch])
-            comp_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f77b4')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f8ff')),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f8ff')])
-            ]))
-            elements.append(comp_table)
-            elements.append(Spacer(1, 0.2*inch))
+            consensus = report_data.get('consensus_features', [])
+            conflicting = report_data.get('conflicting_features', [])
             
-            # Recommendations
-            elements.append(Paragraph("Recommendations", heading2_style))
-            for i, rec in enumerate(report_data.get('recommendations', []), 1):
+            findings = []
+            if len(consensus) >= 3:
+                consensus_names = ", ".join([f['feature_name'].replace('_', ' ') for f in consensus[:3]])
+                findings.append(f"✓ <b>Strong Consensus:</b> Both models agree on key risk factors: {consensus_names}")
+            
+            if lgbm_gnn_diff > 20:
+                findings.append(f"⚠ <b>Score Variance:</b> Models differ by {lgbm_gnn_diff:.1f} points, indicating different risk perspectives")
+            else:
+                findings.append(f"✓ <b>Score Consistency:</b> Models are aligned (difference: {lgbm_gnn_diff:.1f} points)")
+            
+            if report_data['overall_risk_assessment'].startswith('CRITICAL') or report_data['overall_risk_assessment'].startswith('HIGH'):
+                findings.append("⚠ <b>Elevated Risk:</b> Account exhibits multiple concerning patterns requiring investigation")
+            
+            for finding in findings:
+                elements.append(Paragraph(f"• {finding}", styles['Normal']))
+                elements.append(Spacer(1, 0.06*inch))
+            
+            elements.append(Spacer(1, 0.15*inch))
+            
+            # Actionable Recommendations
+            elements.append(Paragraph("Recommendations", section_heading_style))
+            for i, rec in enumerate(report_data.get('recommendations', [])[:5], 1):
                 elements.append(Paragraph(f"<b>{i}.</b> {rec}", styles['Normal']))
                 elements.append(Spacer(1, 0.08*inch))
             
-            # Footer
-            elements.append(Spacer(1, 0.3*inch))
+            elements.append(Spacer(1, 0.2*inch))
+            
+            # Report Metadata
+            elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cccccc')))
+            elements.append(Spacer(1, 0.08*inch))
             footer_style = ParagraphStyle(
                 'Footer',
                 parent=styles['Normal'],
@@ -1059,8 +1185,8 @@ class SHAPExplainer:
                 textColor=colors.HexColor('#999999'),
                 alignment=TA_CENTER
             )
-            elements.append(Paragraph("Generated by SHAP Model Explainability System | Trinetra Mule Detection", 
-                                    footer_style))
+            elements.append(Paragraph("SHAP Model Explainability System | Trinetra Mule Detection", footer_style))
+            elements.append(Paragraph(f"Report ID: {account_id} | Generated: {report_data['report_generated_at']}", footer_style))
             
             # Build PDF
             doc.build(elements)
