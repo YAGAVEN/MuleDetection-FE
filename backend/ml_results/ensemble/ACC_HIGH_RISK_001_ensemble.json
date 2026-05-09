@@ -1,0 +1,15 @@
+{
+  "account_id": "ACC_HIGH_RISK_001",
+  "model": "ensemble_v1.0",
+  "scores": {
+    "lgbm_score": 74.89,
+    "gnn_score": 65.0,
+    "ensemble_score": 70.934
+  },
+  "weights": {
+    "lgbm": 0.6,
+    "gnn": 0.4
+  },
+  "feature_count": 23,
+  "timestamp": "2026-05-06T11:14:55.236001"
+}

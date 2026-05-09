@@ -1,0 +1,273 @@
+{
+  "account_id": "ACC123456",
+  "prediction_score": 76.0,
+  "base_value": 50.0,
+  "feature_contributions": [
+    {
+      "feature_name": "account_age_days",
+      "shap_value": 1.898,
+      "base_value": 50.0,
+      "contribution_percentage": 0.01142771034724225
+    },
+    {
+      "feature_name": "amt_exact_50k_pct",
+      "shap_value": 1.6317599999999999,
+      "base_value": 50.0,
+      "contribution_percentage": 0.009824700019081143
+    },
+    {
+      "feature_name": "avg_balance_negative",
+      "shap_value": 0.0,
+      "base_value": 50.0,
+      "contribution_percentage": 0.0
+    },
+    {
+      "feature_name": "avg_txn_amount",
+      "shap_value": 218.4,
+      "base_value": 50.0,
+      "contribution_percentage": 1.314969409819656
+    },
+    {
+      "feature_name": "ch_atw_pct",
+      "shap_value": 0.10556,
+      "base_value": 50.0,
+      "contribution_percentage": 0.0006355685480795005
+    },
+    {
+      "feature_name": "ch_chq_pct",
+      "shap_value": 0.04524,
+      "base_value": 50.0,
+      "contribution_percentage": 0.00027238652060550023
+    },
+    {
+      "feature_name": "ch_ntd_pct",
+      "shap_value": 0.054599999999999996,
+      "base_value": 50.0,
+      "contribution_percentage": 0.000328742352454914
+    },
+    {
+      "feature_name": "channel_entropy",
+      "shap_value": 0.05823999999999999,
+      "base_value": 50.0,
+      "contribution_percentage": 0.00035065850928524153
+    },
+    {
+      "feature_name": "credit_debit_ratio",
+      "shap_value": 0.02496,
+      "base_value": 50.0,
+      "contribution_percentage": 0.00015028221826510354
+    },
+    {
+      "feature_name": "days_since_kyc",
+      "shap_value": 0.9360000000000002,
+      "base_value": 50.0,
+      "contribution_percentage": 0.005635583184941384
+    },
+    {
+      "feature_name": "fan_in_ratio",
+      "shap_value": 0.00884,
+      "base_value": 50.0,
+      "contribution_percentage": 5.3224952302224176e-05
+    },
+    {
+      "feature_name": "is_frozen",
+      "shap_value": 0.0,
+      "base_value": 50.0,
+      "contribution_percentage": 0.0
+    },
+    {
+      "feature_name": "kyc_doc_count",
+      "shap_value": 0.0156,
+      "base_value": 50.0,
+      "contribution_percentage": 9.392638641568971e-05
+    },
+    {
+      "feature_name": "kyc_non_compliant",
+      "shap_value": 0.0,
+      "base_value": 50.0,
+      "contribution_percentage": 0.0
+    },
+    {
+      "feature_name": "mean_passthrough_hours",
+      "shap_value": 0.11699999999999999,
+      "base_value": 50.0,
+      "contribution_percentage": 0.0007044478981176729
+    },
+    {
+      "feature_name": "mobile_spike_ratio",
+      "shap_value": 0.043680000000000004,
+      "base_value": 50.0,
+      "contribution_percentage": 0.00026299388196393124
+    },
+    {
+      "feature_name": "monthly_cv",
+      "shap_value": 2600.0,
+      "base_value": 50.0,
+      "contribution_percentage": 15.654397735948287
+    },
+    {
+      "feature_name": "net_flow",
+      "shap_value": 780.0,
+      "base_value": 50.0,
+      "contribution_percentage": 4.696319320784486
+    },
+    {
+      "feature_name": "pct_within_6h",
+      "shap_value": 0.9152,
+      "base_value": 50.0,
+      "contribution_percentage": 0.005510348003053797
+    },
+    {
+      "feature_name": "sender_concentration",
+      "shap_value": 2.4492000000000003,
+      "base_value": 50.0,
+      "contribution_percentage": 0.014746442667263287
+    },
+    {
+      "feature_name": "structuring_40k_50k_pct",
+      "shap_value": 1.7745000000000002,
+      "base_value": 50.0,
+      "contribution_percentage": 0.010684126454784707
+    },
+    {
+      "feature_name": "total_credit",
+      "shap_value": 13000.0,
+      "base_value": 50.0,
+      "contribution_percentage": 78.27198867974144
+    },
+    {
+      "feature_name": "unique_counterparties",
+      "shap_value": 0.273,
+      "base_value": 50.0,
+      "contribution_percentage": 0.0016437117622745702
+    }
+  ],
+  "top_positive_features": [
+    {
+      "feature_name": "total_credit",
+      "shap_value": 13000.0,
+      "base_value": 50.0,
+      "contribution_percentage": 78.27198867974144
+    },
+    {
+      "feature_name": "monthly_cv",
+      "shap_value": 2600.0,
+      "base_value": 50.0,
+      "contribution_percentage": 15.654397735948287
+    },
+    {
+      "feature_name": "net_flow",
+      "shap_value": 780.0,
+      "base_value": 50.0,
+      "contribution_percentage": 4.696319320784486
+    },
+    {
+      "feature_name": "avg_txn_amount",
+      "shap_value": 218.4,
+      "base_value": 50.0,
+      "contribution_percentage": 1.314969409819656
+    },
+    {
+      "feature_name": "sender_concentration",
+      "shap_value": 2.4492000000000003,
+      "base_value": 50.0,
+      "contribution_percentage": 0.014746442667263287
+    },
+    {
+      "feature_name": "account_age_days",
+      "shap_value": 1.898,
+      "base_value": 50.0,
+      "contribution_percentage": 0.01142771034724225
+    },
+    {
+      "feature_name": "structuring_40k_50k_pct",
+      "shap_value": 1.7745000000000002,
+      "base_value": 50.0,
+      "contribution_percentage": 0.010684126454784707
+    },
+    {
+      "feature_name": "amt_exact_50k_pct",
+      "shap_value": 1.6317599999999999,
+      "base_value": 50.0,
+      "contribution_percentage": 0.009824700019081143
+    },
+    {
+      "feature_name": "days_since_kyc",
+      "shap_value": 0.9360000000000002,
+      "base_value": 50.0,
+      "contribution_percentage": 0.005635583184941384
+    },
+    {
+      "feature_name": "pct_within_6h",
+      "shap_value": 0.9152,
+      "base_value": 50.0,
+      "contribution_percentage": 0.005510348003053797
+    }
+  ],
+  "top_negative_features": [],
+  "top_contributing_features": [
+    {
+      "feature_name": "total_credit",
+      "shap_value": 13000.0,
+      "base_value": 50.0,
+      "contribution_percentage": 78.27198867974144
+    },
+    {
+      "feature_name": "monthly_cv",
+      "shap_value": 2600.0,
+      "base_value": 50.0,
+      "contribution_percentage": 15.654397735948287
+    },
+    {
+      "feature_name": "net_flow",
+      "shap_value": 780.0,
+      "base_value": 50.0,
+      "contribution_percentage": 4.696319320784486
+    },
+    {
+      "feature_name": "avg_txn_amount",
+      "shap_value": 218.4,
+      "base_value": 50.0,
+      "contribution_percentage": 1.314969409819656
+    },
+    {
+      "feature_name": "sender_concentration",
+      "shap_value": 2.4492000000000003,
+      "base_value": 50.0,
+      "contribution_percentage": 0.014746442667263287
+    },
+    {
+      "feature_name": "account_age_days",
+      "shap_value": 1.898,
+      "base_value": 50.0,
+      "contribution_percentage": 0.01142771034724225
+    },
+    {
+      "feature_name": "structuring_40k_50k_pct",
+      "shap_value": 1.7745000000000002,
+      "base_value": 50.0,
+      "contribution_percentage": 0.010684126454784707
+    },
+    {
+      "feature_name": "amt_exact_50k_pct",
+      "shap_value": 1.6317599999999999,
+      "base_value": 50.0,
+      "contribution_percentage": 0.009824700019081143
+    },
+    {
+      "feature_name": "days_since_kyc",
+      "shap_value": 0.9360000000000002,
+      "base_value": 50.0,
+      "contribution_percentage": 0.005635583184941384
+    },
+    {
+      "feature_name": "pct_within_6h",
+      "shap_value": 0.9152,
+      "base_value": 50.0,
+      "contribution_percentage": 0.005510348003053797
+    }
+  ],
+  "model_used": "ensemble",
+  "shap_version": "shap_v1.0",
+  "timestamp": "2026-05-07T00:59:06.036657"
+}

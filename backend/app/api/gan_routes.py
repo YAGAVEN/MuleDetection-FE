@@ -10,7 +10,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query, Body
 from pydantic import BaseModel, Field
 
-from app.services.gan_training import get_gan_service, TrainingStatus
+from ..services.gan_training import get_gan_service, TrainingStatus
 
 logger = logging.getLogger(__name__)
 

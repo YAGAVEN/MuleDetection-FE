@@ -3,11 +3,11 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from app.schemas import (
+from ..schemas import (
     AccountResponse, AccountFeaturesBase, 
     AlertResponse, SARReportResponse
 )
-from app.database import get_db_service
+from ..database import get_db_service
 
 router = APIRouter(prefix="/api/v1/db", tags=["Database"])
 
