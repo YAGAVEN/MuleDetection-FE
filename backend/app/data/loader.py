@@ -43,9 +43,8 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
     """
     Load transactions CSV file with caching.
 
-    Behavior: when no filepath is provided, prefer a 'master.csv' file if present
-    in known locations (backend/data/master.csv, Mule-data/master.csv). Falls
-    back to backend/data/transactions.csv otherwise.
+    Behavior: when no filepath is provided, prefer backend/data/master.csv.
+    Falls back to backend/data/transactions.csv otherwise.
 
     Args:
         filepath: Path to transactions CSV file (defaults to DATA_DIR/transactions.csv)
@@ -59,11 +58,9 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
         RuntimeError: If loading fails
     """
     if filepath is None:
-        # Prefer explicit master.csv if available (project-root or backend)
+        # Prefer the backend-owned master dataset.
         candidates = [
             os.path.join("backend", "data", "master.csv"),
-            os.path.join("Mule-data", "master.csv"),
-            os.path.join("..", "Mule-data", "master.csv"),
             os.path.join("backend", "data", "transactions.csv"),
             os.path.join("transactions.csv"),
         ]
