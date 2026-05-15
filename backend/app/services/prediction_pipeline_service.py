@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict
 
+import numpy as np
 import pandas as pd
 
 from .ml_models import get_model_manager
@@ -51,12 +52,17 @@ class PredictionPipelineService:
             )
 
         predictions = pd.DataFrame(prediction_rows)
-        predictions["risk_level"] = pd.cut(
-            predictions["ensemble_score"],
-            bins=[-0.01, 25.0, 50.0, 75.0, 100.01],
-            labels=["LOW", "MEDIUM", "HIGH", "CRITICAL"],
-        ).astype(str)
-        predictions["is_suspicious"] = (predictions["ensemble_score"] >= 70.0).astype(int)
+        rank_pct = predictions["ensemble_score"].rank(method="first", pct=True)
+        predictions["risk_level"] = np.select(
+            [
+                rank_pct <= (1.0 / 3.0),
+                rank_pct <= (2.0 / 3.0),
+                rank_pct <= 0.9,
+            ],
+            ["LOW", "MEDIUM", "HIGH"],
+            default="CRITICAL",
+        )
+        predictions["is_suspicious"] = (rank_pct > 0.8).astype(int)
 
         predictions_csv = self.temp_dir / "predictions.csv"
         predictions.to_csv(predictions_csv, index=False)
@@ -83,6 +89,14 @@ class PredictionPipelineService:
             "high_count": int((predictions["risk_level"] == "HIGH").sum()),
             "medium_count": int((predictions["risk_level"] == "MEDIUM").sum()),
             "low_count": int((predictions["risk_level"] == "LOW").sum()),
+            "risk_bucket_strategy": "dynamic_percentile_rank",
+            "risk_thresholds": {
+                "low_upto_pct_rank": 0.3333,
+                "medium_upto_pct_rank": 0.6667,
+                "high_upto_pct_rank": 0.9,
+                "critical_above_pct_rank": 0.9,
+                "suspicious_above_pct_rank": 0.8,
+            },
             "parquet_written": parquet_written,
             "cases_ready": True,
         }
@@ -129,7 +143,8 @@ class PredictionPipelineService:
         alerts: list[Dict[str, str]] = []
         for index, row in top.iterrows():
             score = float(row.get("ensemble_score", 0.0))
-            severity = "critical" if score >= 85.0 else "high" if score >= 70.0 else "medium"
+            risk_level = str(row.get("risk_level", "MEDIUM")).upper()
+            severity = "critical" if risk_level == "CRITICAL" else "high" if risk_level == "HIGH" else "medium"
             alerts.append(
                 {
                     "id": f"AL-{9000 + index + 1}",

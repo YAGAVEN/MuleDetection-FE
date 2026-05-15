@@ -6,6 +6,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from .api import (
+    dashboard_routes,
     health_routes,
     ingestion_routes,
     pipeline_routes,
@@ -62,6 +63,7 @@ async def shutdown_event():
 app.include_router(health_routes.router)
 app.include_router(ingestion_routes.router)
 app.include_router(pipeline_routes.router)
+app.include_router(dashboard_routes.router)
 
 
 # Global exception handler
@@ -93,6 +95,7 @@ async def root():
             "ingestion_summary": "/api/ingestion/summary",
             "ingestion_clear": "/api/ingestion/clear",
             "pipeline_status": "/api/pipeline/status",
+            "dashboard_summary": "/api/dashboard/summary",
         }
     }
 
