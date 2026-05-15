@@ -42,21 +42,39 @@ def _load_csv(filepath: str) -> pd.DataFrame:
 def load_transactions(filepath: str = None) -> pd.DataFrame:
     """
     Load transactions CSV file with caching.
-    
+
+    Behavior: when no filepath is provided, prefer backend/data/master.csv.
+    Falls back to backend/data/transactions.csv otherwise.
+
     Args:
         filepath: Path to transactions CSV file (defaults to DATA_DIR/transactions.csv)
-        
+
     Returns:
         DataFrame containing transactions data
-        
+
     Raises:
         FileNotFoundError: If the CSV file does not exist
         ValueError: If CSV parsing fails
         RuntimeError: If loading fails
     """
     if filepath is None:
-        filepath = os.path.join(DATA_DIR, "transactions.csv")
-    
+        # Prefer the backend-owned master dataset.
+        candidates = [
+            os.path.join("backend", "data", "master.csv"),
+            os.path.join("backend", "data", "transactions.csv"),
+            os.path.join("transactions.csv"),
+        ]
+        found = None
+        for cand in candidates:
+            if os.path.exists(cand):
+                found = cand
+                break
+        if found:
+            filepath = found
+        else:
+            # Fallback to DATA_DIR default
+            filepath = os.path.join(DATA_DIR, "transactions.csv")
+
     # If relative path, try from current directory first, then from parent
     if not os.path.isabs(filepath):
         # Try as-is first
@@ -70,7 +88,7 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
                 alt_path2 = filepath.replace("backend/", "")
                 if os.path.exists(alt_path2):
                     filepath = alt_path2
-    
+
     filepath = os.path.abspath(filepath)
     return _load_csv(filepath)
 

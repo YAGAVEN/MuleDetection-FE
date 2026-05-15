@@ -8,6 +8,7 @@
 *.mp4
 *.env
 *.json
+*.json
 
 # ============================================================
 # PYTHON & VIRTUAL ENVIRONMENTS
@@ -73,6 +74,14 @@ Thumbs.db
 *.tmp
 *.temp
 *.bak
+
+# ============================================================
+# BACKEND GENERATED ARTIFACTS
+# ============================================================
+backend/.venv/
+backend/logs/
+backend/ml_results/
+backend/.env
 
 # ============================================================
 # BACKEND GENERATED ARTIFACTS
