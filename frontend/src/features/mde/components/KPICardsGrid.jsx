@@ -21,6 +21,13 @@ const strokeTone = {
 
 export default function KPICardsGrid() {
   const cards = useMDEStore((s) => s.kpis)
+  if (!cards.length) {
+    return (
+      <GlassCard className="p-4">
+        <p className="text-sm text-slate-300">No live KPI data available.</p>
+      </GlassCard>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-4">

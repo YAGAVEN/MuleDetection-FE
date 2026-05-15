@@ -6,8 +6,11 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from .api import (
+    dashboard_routes,
     health_routes,
+    hydra_routes,
     ingestion_routes,
+    model_command_center_routes,
     pipeline_routes,
     shap_routes,
     chronos_routes,
@@ -74,8 +77,6 @@ async def shutdown_event():
 app.include_router(health_routes.router)
 app.include_router(ingestion_routes.router)
 app.include_router(pipeline_routes.router)
-app.include_router(shap_routes.router)
-app.include_router(chronos_routes.router)
 
 
 # Global exception handler
@@ -107,6 +108,12 @@ async def root():
             "ingestion_summary": "/api/ingestion/summary",
             "ingestion_clear": "/api/ingestion/clear",
             "pipeline_status": "/api/pipeline/status",
+            "dashboard_summary": "/api/dashboard/summary",
+            "model_command_center_details": "/api/model-command-center/details",
+            "model_command_center_version": "/api/model-command-center/version",
+            "hydra_battle_start": "/api/hydra/battle/start",
+            "hydra_battle_status": "/api/hydra/battle/status",
+            "hydra_battle_events": "/api/hydra/battle/events",
         }
     }
 

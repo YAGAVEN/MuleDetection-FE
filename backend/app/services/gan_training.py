@@ -30,6 +30,7 @@ from adversarial_framework import (
     evaluate_synthetic_quality
 )
 from online_learning import StreamingAdversarialLearner, OnlineFraudDetectionSystem
+from .model_command_center_service import model_command_center_service
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +263,11 @@ class GANTrainingService:
                 timestamp=datetime.now()
             )
             self.metrics_history[training_id].append(metrics)
+            model_command_center_service.mark_gan_training_completed(
+                training_id=training_id,
+                config=config,
+                gan_metrics=metrics.to_dict(),
+            )
 
             # Create augmenter
             logger.info(f"[{training_id}] Creating augmented data...")

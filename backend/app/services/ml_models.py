@@ -1,21 +1,88 @@
 """ML Models service - LightGBM, GNN, and Ensemble"""
-import numpy as np
 import json
+import logging
 import os
-from typing import Dict, List, Any, Tuple
-from datetime import datetime
+import pickle
+import shutil
 import warnings
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
+import pandas as pd
 
 warnings.filterwarnings('ignore')
 
 # ML results directories
-LGBM_RESULTS_DIR = "ml_results/lgbm"
-GNN_RESULTS_DIR = "ml_results/gnn"
-ENSEMBLE_RESULTS_DIR = "ml_results/ensemble"
-SHAP_RESULTS_DIR = "ml_results/shap"
+SERVICE_FILE = Path(__file__).resolve()
+BACKEND_ROOT = SERVICE_FILE.parents[2]
+PROJECT_ROOT = SERVICE_FILE.parents[3]
+ML_RESULTS_ROOT = BACKEND_ROOT / "ml_results"
+MODEL_ARTIFACTS_DIR = ML_RESULTS_ROOT / "models"
 
-for dir_path in [LGBM_RESULTS_DIR, GNN_RESULTS_DIR, ENSEMBLE_RESULTS_DIR, SHAP_RESULTS_DIR]:
+LGBM_RESULTS_DIR = str(ML_RESULTS_ROOT / "lgbm")
+GNN_RESULTS_DIR = str(ML_RESULTS_ROOT / "gnn")
+ENSEMBLE_RESULTS_DIR = str(ML_RESULTS_ROOT / "ensemble")
+SHAP_RESULTS_DIR = str(ML_RESULTS_ROOT / "shap")
+
+TRAINED_LGBM_SOURCE = PROJECT_ROOT / "Mule-data" / "models" / "lgbm_fold1.txt"
+TRAINED_LGBM_LOCAL = MODEL_ARTIFACTS_DIR / "lgbm_fold1.txt"
+LGBM_RUNTIME_PKL = MODEL_ARTIFACTS_DIR / "lightgbm_model.pkl"
+GNN_RUNTIME_PKL = MODEL_ARTIFACTS_DIR / "gnn_model.pkl"
+ENSEMBLE_RUNTIME_PKL = MODEL_ARTIFACTS_DIR / "ensemble_model.pkl"
+
+logger = logging.getLogger(__name__)
+
+for dir_path in [LGBM_RESULTS_DIR, GNN_RESULTS_DIR, ENSEMBLE_RESULTS_DIR, SHAP_RESULTS_DIR, str(MODEL_ARTIFACTS_DIR)]:
     os.makedirs(dir_path, exist_ok=True)
+
+
+def _sync_trained_artifacts() -> None:
+    artifact_pairs = [(TRAINED_LGBM_SOURCE, TRAINED_LGBM_LOCAL)]
+    for source, destination in artifact_pairs:
+        if not source.exists():
+            continue
+        try:
+            if not destination.exists() or source.stat().st_mtime > destination.stat().st_mtime:
+                shutil.copy2(source, destination)
+        except OSError as exc:
+            logger.warning("Failed to copy trained artifact %s -> %s: %s", source, destination, exc)
+
+
+def _initialize_runtime_models() -> None:
+    lgbm_payload = {
+        "model_version": "lgbm_v1.0-trained",
+        "artifact_type": "lightgbm_booster",
+        "model_path": str(TRAINED_LGBM_LOCAL),
+    }
+    gnn_payload = {
+        "model_version": "gnn_v1.0-runtime",
+        "counterparty_thresholds": [(50, 20.0), (20, 15.0), (10, 10.0)],
+        "fan_in_multiplier": 30.0,
+        "fan_in_cap": 25.0,
+        "sender_concentration_thresholds": [(0.8, 20.0), (0.5, 15.0), (0.3, 10.0)],
+        "credit_debit_ratio_thresholds": [(2.0, 18.0), (1.5, 12.0)],
+    }
+    ensemble_payload = {
+        "model_version": "ensemble_v1.0-runtime",
+        "weights": {"lgbm": 0.6, "gnn": 0.4},
+    }
+
+    for artifact_path, payload in (
+        (LGBM_RUNTIME_PKL, lgbm_payload),
+        (GNN_RUNTIME_PKL, gnn_payload),
+        (ENSEMBLE_RUNTIME_PKL, ensemble_payload),
+    ):
+        try:
+            with open(artifact_path, "wb") as artifact_file:
+                pickle.dump(payload, artifact_file)
+        except OSError as exc:
+            logger.warning("Failed writing runtime model artifact %s: %s", artifact_path, exc)
+
+
+_sync_trained_artifacts()
+_initialize_runtime_models()
 
 
 class LightGBMPredictor:
@@ -32,6 +99,45 @@ class LightGBMPredictor:
             'kyc_non_compliant', 'account_age_days', 'total_credit', 'net_flow',
             'credit_debit_ratio', 'mean_passthrough_hours', 'channel_entropy'
         ]
+        self._booster = None
+        self.model_source = "heuristic"
+        self._load_trained_model()
+
+    def _load_trained_model(self) -> None:
+        model_path = TRAINED_LGBM_LOCAL
+        if LGBM_RUNTIME_PKL.exists():
+            try:
+                with open(LGBM_RUNTIME_PKL, "rb") as artifact_file:
+                    metadata = pickle.load(artifact_file)
+                configured_path = metadata.get("model_path")
+                if isinstance(configured_path, str) and configured_path:
+                    model_path = Path(configured_path)
+            except (OSError, pickle.UnpicklingError, AttributeError) as exc:
+                logger.warning("Failed loading LightGBM runtime artifact %s: %s", LGBM_RUNTIME_PKL, exc)
+
+        if not model_path.exists():
+            return
+
+        try:
+            import lightgbm as lgb
+
+            self._booster = lgb.Booster(model_file=str(model_path))
+            booster_features = self._booster.feature_name()
+            if booster_features:
+                self.feature_names = booster_features
+            self.model_version = "lgbm_v1.0-trained"
+            self.model_source = str(model_path)
+        except (ImportError, OSError, RuntimeError) as exc:
+            logger.warning("Failed to load trained LightGBM model from %s: %s", model_path, exc)
+
+    def _prepare_feature_frame(self, features: Dict[str, float]) -> pd.DataFrame:
+        normalized_features = {}
+        for feature_name in self.feature_names:
+            value = features.get(feature_name, 0.0)
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                value = 0.0
+            normalized_features[feature_name] = float(value)
+        return pd.DataFrame([normalized_features], columns=self.feature_names)
 
     def predict(self, features: Dict[str, float]) -> float:
         """
@@ -40,9 +146,11 @@ class LightGBMPredictor:
         Returns:
             Score between 0-100
         """
-        # Extract feature vector
-        feature_vector = self._prepare_features(features)
-        
+        if self._booster is not None:
+            inference_frame = self._prepare_feature_frame(features)
+            probability = float(self._booster.predict(inference_frame, num_iteration=self._booster.best_iteration)[0])
+            return float(np.clip(probability * 100.0, 0.0, 100.0))
+
         # Simulate LightGBM prediction (weights based on domain knowledge)
         weights = {
             'structuring_40k_50k_pct': 15.0,
@@ -99,9 +207,39 @@ class GNNPredictor:
     """Graph Neural Network model for network-based mule detection"""
 
     def __init__(self):
-        self.model_version = "gnn_v1.0"
+        self.model_version = "gnn_v1.0-runtime"
+        self.model_source = str(GNN_RUNTIME_PKL)
+        self.config = {
+            "counterparty_thresholds": [(50, 20.0), (20, 15.0), (10, 10.0)],
+            "fan_in_multiplier": 30.0,
+            "fan_in_cap": 25.0,
+            "sender_concentration_thresholds": [(0.8, 20.0), (0.5, 15.0), (0.3, 10.0)],
+            "credit_debit_ratio_thresholds": [(2.0, 18.0), (1.5, 12.0)],
+        }
+        self._load_runtime_model()
 
-    def predict(self, features: Dict[str, float], network_data: Dict[str, Any] = None) -> float:
+    def _load_runtime_model(self) -> None:
+        if not GNN_RUNTIME_PKL.exists():
+            return
+        try:
+            with open(GNN_RUNTIME_PKL, "rb") as artifact_file:
+                payload = pickle.load(artifact_file)
+            if isinstance(payload, dict):
+                payload_config = payload.copy()
+                payload_config.pop("model_version", None)
+                self.config.update(payload_config)
+                configured_version = payload.get("model_version")
+                if isinstance(configured_version, str) and configured_version:
+                    self.model_version = configured_version
+        except (OSError, pickle.UnpicklingError, AttributeError) as exc:
+            logger.warning("Failed to load GNN runtime model artifact %s: %s", GNN_RUNTIME_PKL, exc)
+
+    def predict(
+        self,
+        features: Dict[str, float],
+        network_data: Dict[str, Any] = None,
+        account_id: str | None = None,
+    ) -> float:
         """
         Predict mule score using GNN model
         
@@ -115,35 +253,34 @@ class GNNPredictor:
         # Network density features
         if 'unique_counterparties' in features:
             counterparties = features['unique_counterparties']
-            if counterparties > 50:
-                score += 20.0
-            elif counterparties > 20:
-                score += 15.0
-            elif counterparties > 10:
-                score += 10.0
+            for threshold, weight in self.config["counterparty_thresholds"]:
+                if counterparties > threshold:
+                    score += float(weight)
+                    break
 
         # Fan-in ratio (money in from many sources)
         if 'fan_in_ratio' in features:
             fan_in = features['fan_in_ratio']
-            score += min(fan_in * 30, 25.0)
+            score += min(
+                fan_in * float(self.config["fan_in_multiplier"]),
+                float(self.config["fan_in_cap"]),
+            )
 
         # Sender concentration (money from few sources)
         if 'sender_concentration' in features:
             concentration = features['sender_concentration']
-            if concentration > 0.8:
-                score += 20.0
-            elif concentration > 0.5:
-                score += 15.0
-            elif concentration > 0.3:
-                score += 10.0
+            for threshold, weight in self.config["sender_concentration_thresholds"]:
+                if concentration > threshold:
+                    score += float(weight)
+                    break
 
         # Credit-debit asymmetry
         if 'credit_debit_ratio' in features:
             ratio = features['credit_debit_ratio']
-            if ratio > 2.0:
-                score += 18.0
-            elif ratio > 1.5:
-                score += 12.0
+            for threshold, weight in self.config["credit_debit_ratio_thresholds"]:
+                if ratio > threshold:
+                    score += float(weight)
+                    break
 
         score = min(score, 100.0)
         return float(score)
@@ -168,13 +305,37 @@ class EnsemblePredictor:
     def __init__(self):
         self.lgbm = LightGBMPredictor()
         self.gnn = GNNPredictor()
-        self.model_version = "ensemble_v1.0"
+        self.model_version = "ensemble_v1.0-runtime"
         self.weights = {
             'lgbm': 0.6,  # 60% weight to LightGBM
             'gnn': 0.4    # 40% weight to GNN
         }
+        self.model_source = str(ENSEMBLE_RUNTIME_PKL)
+        self._load_runtime_model()
 
-    def predict(self, features: Dict[str, float]) -> Dict[str, float]:
+    def _load_runtime_model(self) -> None:
+        if not ENSEMBLE_RUNTIME_PKL.exists():
+            return
+        try:
+            with open(ENSEMBLE_RUNTIME_PKL, "rb") as artifact_file:
+                payload = pickle.load(artifact_file)
+            configured_weights = payload.get("weights")
+            if (
+                isinstance(configured_weights, dict)
+                and "lgbm" in configured_weights
+                and "gnn" in configured_weights
+            ):
+                self.weights = {
+                    "lgbm": float(configured_weights["lgbm"]),
+                    "gnn": float(configured_weights["gnn"]),
+                }
+            configured_version = payload.get("model_version")
+            if isinstance(configured_version, str) and configured_version:
+                self.model_version = configured_version
+        except (OSError, pickle.UnpicklingError, AttributeError, TypeError, ValueError) as exc:
+            logger.warning("Failed to load ensemble runtime model artifact %s: %s", ENSEMBLE_RUNTIME_PKL, exc)
+
+    def predict(self, features: Dict[str, float], account_id: str | None = None) -> Dict[str, float]:
         """
         Predict using ensemble of LightGBM and GNN
         
@@ -182,7 +343,7 @@ class EnsemblePredictor:
             Dictionary with individual and ensemble scores
         """
         lgbm_score = self.lgbm.predict(features)
-        gnn_score = self.gnn.predict(features)
+        gnn_score = self.gnn.predict(features, account_id=account_id)
 
         # Weighted ensemble
         ensemble_score = (
@@ -618,7 +779,7 @@ class SHAPExplainer:
         """
         try:
             # Get predictions from all models
-            scores = model_manager.ensemble.predict(features)
+            scores = model_manager.ensemble.predict(features, account_id=account_id)
             
             # Generate explanations for each model
             lgbm_exp = self.explain_lgbm_model(account_id, features, model_manager.ensemble.lgbm)
@@ -1214,7 +1375,7 @@ class ModelManager:
             raise ValueError("No features provided for prediction")
 
         # Get ensemble predictions
-        scores = self.ensemble.predict(features)
+        scores = self.ensemble.predict(features, account_id=account_id)
 
         # Save predictions
         self.ensemble.save_predictions(account_id, scores, features)
@@ -1316,6 +1477,11 @@ class ModelManager:
             "ensemble_model": self.ensemble.model_version,
             "lgbm_model": self.ensemble.lgbm.model_version,
             "gnn_model": self.ensemble.gnn.model_version,
+            "model_artifacts": {
+                "lgbm": self.ensemble.lgbm.model_source,
+                "gnn": self.ensemble.gnn.model_source,
+                "ensemble": self.ensemble.model_source,
+            },
             "shap_model": self.shap_explainer.model_version,
             "lgbm_features": len(self.ensemble.lgbm.feature_names),
             "ensemble_weights": self.ensemble.weights,
