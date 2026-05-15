@@ -13,6 +13,36 @@ import {
 import { fetchCases } from '../services/mdeMockService'
 import api from '../../../services/api'
 
+const statusMap = {
+  pending: 'queued',
+  running: 'running',
+  completed: 'completed',
+  failed: 'failed',
+}
+
+const toPipelineSteps = (status = {}) => [
+  {
+    key: 'ingestion',
+    label: 'Ingestion',
+    status: statusMap[status.ingestion || 'pending'],
+  },
+  {
+    key: 'featureEngineering',
+    label: 'Feature Engineering',
+    status: statusMap[status.feature_extraction || 'pending'],
+  },
+  {
+    key: 'modelScoring',
+    label: 'Model Scoring',
+    status: statusMap[status.prediction_engine || 'pending'],
+  },
+  {
+    key: 'caseGeneration',
+    label: 'Case Generation',
+    status: statusMap[status.case_generation || 'pending'],
+  },
+]
+
 export const useMDEStore = create((set, get) => ({
   sidebarCollapsed: false,
   query: '',
@@ -31,6 +61,7 @@ export const useMDEStore = create((set, get) => ({
   cases: [],
   kpis: KPI_CARDS,
   pipeline: PIPELINE_STEPS,
+  pipelineMessage: '',
   chronosSeries: CHRONOS_SERIES,
   hydraLogs: HYDRA_LOGS,
   sarQueue: SAR_QUEUE,
@@ -58,12 +89,34 @@ export const useMDEStore = create((set, get) => ({
         state.sortField === field && state.sortDirection === 'desc' ? 'asc' : 'desc',
     })),
   hydrateCases: async () => {
+    await get().syncPipelineResults()
+    if (get().cases.length > 0) {
+      return
+    }
     const cases = await fetchCases()
     set({ cases })
+  },
+  syncPipelineResults: async () => {
+    try {
+      const results = await api.getPipelineResults()
+      const nextState = {}
+      if (Array.isArray(results?.investigation_cases)) {
+        nextState.cases = results.investigation_cases
+      }
+      if (Array.isArray(results?.alerts)) {
+        nextState.alerts = results.alerts
+      }
+      if (Object.keys(nextState).length > 0) {
+        set(nextState)
+      }
+    } catch {
+      // Keep current state when temp-data results are not available.
+    }
   },
   syncIngestionStatus: async () => {
     try {
       const status = await api.getIngestionStatus()
+      await get().syncPipelineResults()
       set({
         featurePipelineReady: !!status?.feature_pipeline_ready,
       })
@@ -76,44 +129,23 @@ export const useMDEStore = create((set, get) => ({
     if (state.pipelinePollInterval) {
       clearInterval(state.pipelinePollInterval)
     }
-    
-    const statusMap = {
-      pending: 'queued',
-      running: 'running',
-      completed: 'completed',
-      failed: 'queued',
-    }
-    
+
     const interval = setInterval(async () => {
       try {
         const status = await api.getPipelineStatus()
         if (status) {
-          const pipelineSteps = [
-            {
-              key: 'ingestion',
-              label: 'Ingestion',
-              status: statusMap[status.ingestion || 'pending'],
-            },
-            {
-              key: 'featureEngineering',
-              label: 'Feature Engineering',
-              status: statusMap[status.feature_extraction || 'pending'],
-            },
-            {
-              key: 'modelScoring',
-              label: 'Model Scoring',
-              status: statusMap[status.prediction_engine || 'pending'],
-            },
-            {
-              key: 'caseGeneration',
-              label: 'Case Generation',
-              status: statusMap[status.case_generation || 'pending'],
-            },
-          ]
-          set({ pipeline: pipelineSteps })
-          
+          const pipelineSteps = toPipelineSteps(status)
+          set({
+            pipeline: pipelineSteps,
+            pipelineMessage: status.message || '',
+            featurePipelineReady: status.ingestion === 'completed',
+          })
+
+          await get().syncPipelineResults()
+
           const allCompleted = pipelineSteps.every((step) => step.status === 'completed')
-          if (allCompleted) {
+          const hasFailed = pipelineSteps.some((step) => step.status === 'failed')
+          if (allCompleted || hasFailed) {
             clearInterval(interval)
             set({ pipelinePollInterval: null })
           }
@@ -133,6 +165,7 @@ export const useMDEStore = create((set, get) => ({
     }
   },
   runUpload: async (files) => {
+    get().stopPipelinePolling()
     const fileNames = files.map((f) => f.name)
     const required = ['master.csv', 'transactions_full.csv']
     const validSelection =
@@ -151,6 +184,8 @@ export const useMDEStore = create((set, get) => ({
           },
         ],
         featurePipelineReady: false,
+        pipeline: PIPELINE_STEPS,
+        pipelineMessage: '',
       })
       return
     }
@@ -161,6 +196,8 @@ export const useMDEStore = create((set, get) => ({
       uploadSummary: null,
       uploadErrors: [],
       featurePipelineReady: false,
+      pipeline: PIPELINE_STEPS,
+      pipelineMessage: '',
     })
 
     try {
@@ -178,7 +215,7 @@ export const useMDEStore = create((set, get) => ({
         uploadErrors: [],
         featurePipelineReady: !!response?.feature_pipeline_ready,
       })
-      
+
       get().startPipelinePolling()
     } catch (error) {
       const details = error?.details || {}
@@ -197,6 +234,7 @@ export const useMDEStore = create((set, get) => ({
                 },
               ],
         featurePipelineReady: false,
+        pipelineMessage: '',
       })
     }
   },
