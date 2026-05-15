@@ -13,9 +13,9 @@ class TriNetraAPI {
         const host = window.location.hostname;
         const isLocal = host === 'localhost' || host === '127.0.0.1';
 
-        // Prefer direct backend URL locally so Mule APIs still work even when proxy is not active.
+        // Use port 8000 for FastAPI backend locally
         if (isLocal) {
-            return 'http://localhost:5001/api';
+            return 'http://localhost:8000/api';
         }
 
         return '/api';

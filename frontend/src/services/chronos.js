@@ -13,6 +13,7 @@ class ChronosTimeline {
         this.height = 400;
         this.margin = { top: 20, right: 30, bottom: 40, left: 50 };
         this.data = [];
+        this.riskScores = {}; // Map account_id to risk data
         this.currentScenario = 'all';
         this.timeQuantum = '1m'; // New time quantum selection
         this.isPlaying = false;
@@ -33,6 +34,103 @@ class ChronosTimeline {
         this.setupNetworkOverview();
     }
 
+    /**
+     * Set risk scores from GNN prediction pipeline
+     * @param {Array} scores - Array of account risk data with account_id, ensemble_score, risk_level
+     */
+    setRiskScores(scores) {
+        if (!Array.isArray(scores)) return;
+        
+        // Create lookup map for O(1) access
+        this.riskScores = {};
+        scores.forEach(score => {
+            if (score.account_id) {
+                this.riskScores[score.account_id] = score;
+            }
+        });
+        
+        console.log(`[CHRONOS] Loaded risk scores for ${Object.keys(this.riskScores).length} accounts`);
+    }
+
+    /**
+     * Get color for risk level
+     * @param {string} riskLevel - 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+     * @returns {string} Color hex code
+     */
+    getRiskColor(riskLevel) {
+        const colors = {
+            'LOW': '#4ade80',        // Green
+            'MEDIUM': '#fbbf24',     // Amber
+            'HIGH': '#f87171',       // Red
+            'CRITICAL': '#dc2626',   // Dark Red
+        };
+        return colors[riskLevel] || '#9ca3af'; // Gray default
+    }
+
+    /**
+     * Get risk data for an account
+     * @param {string} accountId - Account ID
+     * @returns {Object|null} Risk data or null
+     */
+    getAccountRiskData(accountId) {
+        return this.riskScores[accountId] || null;
+    }
+
+    /**
+     * Update visualization with risk highlighting
+     */
+    updateVisualization() {
+        if (Object.keys(this.riskScores).length === 0) return;
+        
+        // Re-render the current visualization with risk colors
+        if (this.viewMode === 'timeline') {
+            this.updateTimelineWithRiskHighlighting();
+        } else if (this.viewMode === 'network') {
+            this.updateNetworkWithRiskHighlighting();
+        }
+    }
+
+    /**
+     * Update timeline visualization with risk colors for high-risk accounts
+     */
+    updateTimelineWithRiskHighlighting() {
+        const criticalAccounts = Object.values(this.riskScores)
+            .filter(r => r.risk_level === 'CRITICAL' || r.risk_level === 'HIGH')
+            .map(r => r.account_id);
+        
+        if (criticalAccounts.length === 0) return;
+        
+        // Highlight transactions from high-risk accounts
+        this.g.selectAll('circle.transaction-point').each(function() {
+            const d = d3.select(this).datum();
+            if (d && criticalAccounts.includes(d.account_id)) {
+                d3.select(this)
+                    .attr('r', 6)
+                    .style('stroke', '#dc2626')
+                    .style('stroke-width', 3)
+                    .style('filter', 'drop-shadow(0 0 6px #dc2626)');
+            }
+        });
+    }
+
+    /**
+     * Update network visualization with risk highlighting
+     */
+    updateNetworkWithRiskHighlighting() {
+        // Color nodes by risk level
+        this.networkNodes.forEach((node, idx) => {
+            const riskData = this.getAccountRiskData(node.id);
+            if (riskData) {
+                node.riskLevel = riskData.risk_level;
+                node.riskScore = riskData.ensemble_score;
+                node.color = this.getRiskColor(riskData.risk_level);
+            }
+        });
+        
+        // Re-render network with new colors
+        this.renderNetwork?.();
+    }
+
     setupTimeline() {
         // Clear existing content
         d3.select(`#${this.containerId}`).selectAll('*').remove();
@@ -40,10 +138,29 @@ class ChronosTimeline {
         // Add explanation panel first
         const container = d3.select(`#${this.containerId}`);
         
-        // Add status bar
-        container.append('div')
-            .attr('class', 'status-bar bg-gradient-to-r from-dark-secondary/80 to-dark-accent/80 rounded-2xl p-6 mb-8 border border-primary/30 shadow-lg')
-            .html(`
+        // Add status bar with risk score info
+        const statusHtml = Object.keys(this.riskScores).length > 0 
+            ? `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="status-item bg-dark/40 rounded-xl p-4 text-center border border-secondary/20">
+                        <div class="text-secondary font-bold text-2xl mb-1" id="total-count">0</div>
+                        <div class="text-gray-300 text-sm">Total Transactions</div>
+                    </div>
+                    <div class="status-item bg-dark/40 rounded-xl p-4 text-center border border-red-400/20">
+                        <div class="text-red-400 font-bold text-2xl mb-1" id="suspicious-count">0</div>
+                        <div class="text-gray-300 text-sm">Suspicious Patterns</div>
+                    </div>
+                    <div class="status-item bg-dark/40 rounded-xl p-4 text-center border border-orange-400/20">
+                        <div class="font-bold text-2xl mb-1" id="risk-level">LOW</div>
+                        <div class="text-gray-300 text-sm">Risk Assessment</div>
+                    </div>
+                    <div class="status-item bg-dark/40 rounded-xl p-4 text-center border border-yellow-400/20">
+                        <div class="text-yellow-400 font-bold text-2xl mb-1" id="gnn-risk-count">0</div>
+                        <div class="text-gray-300 text-sm">High-Risk (GNN)</div>
+                    </div>
+                </div>
+            `
+            : `
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="status-item bg-dark/40 rounded-xl p-4 text-center border border-secondary/20">
                         <div class="text-secondary font-bold text-2xl mb-1" id="total-count">0</div>
@@ -58,7 +175,19 @@ class ChronosTimeline {
                         <div class="text-gray-300 text-sm">Risk Assessment</div>
                     </div>
                 </div>
-            `);
+            `;
+        
+        container.append('div')
+            .attr('class', 'status-bar bg-gradient-to-r from-dark-secondary/80 to-dark-accent/80 rounded-2xl p-6 mb-8 border border-primary/30 shadow-lg')
+            .html(statusHtml);
+        
+        // Update GNN risk count if available
+        if (Object.keys(this.riskScores).length > 0) {
+            const highRiskCount = Object.values(this.riskScores)
+                .filter(r => r.risk_level === 'CRITICAL' || r.risk_level === 'HIGH')
+                .length;
+            container.select('#gnn-risk-count').text(highRiskCount);
+        }
         
         // Create clean SVG with improved styling
         this.width = Math.max(this.container.clientWidth - this.margin.left - this.margin.right, 800);

@@ -2,11 +2,14 @@
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from pathlib import Path
+import json
 import pandas as pd
 import logging
 from pydantic import BaseModel, Field
 
 from ..data import get_transactions, get_account_features
+from ..services.storage_service import storage_service
 
 router = APIRouter(prefix="/api/chronos", tags=["Chronos Timeline"])
 logger = logging.getLogger(__name__)
@@ -19,6 +22,18 @@ class SearchRequest(BaseModel):
         default="all",
         description="Search type: 'all', 'id', 'from_account', 'to_account', 'transaction_type', 'channel'"
     )
+
+
+def load_risk_scores() -> Optional[Dict[str, Any]]:
+    """Load risk scores from prediction pipeline output."""
+    try:
+        risk_scores_path = storage_service.temp_data_dir / "risk_scores.json"
+        if risk_scores_path.exists():
+            with open(risk_scores_path, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"Could not load risk scores: {e}")
+    return None
 
 
 def compute_layering_summary(df: pd.DataFrame, features_df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
@@ -517,3 +532,99 @@ async def search_transactions(request: SearchRequest) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error in search endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@router.get("/accounts-with-risk-scores")
+async def get_accounts_with_risk_scores(
+    limit: int = Query(100, description="Number of top accounts to return")
+) -> Dict[str, Any]:
+    """
+    Get accounts with their risk scores from GNN prediction pipeline.
+    Combines transaction data with ML-generated risk assessments.
+    
+    Args:
+        limit: Number of accounts to return (default 100)
+        
+    Returns:
+        JSON response with accounts and risk scores
+    """
+    try:
+        # Load risk scores from prediction pipeline
+        risk_scores_data = load_risk_scores()
+        
+        if not risk_scores_data or "scores" not in risk_scores_data:
+            return {
+                "status": "success",
+                "accounts": [],
+                "total_accounts": 0,
+                "message": "No risk scores available. Run the prediction pipeline first.",
+                "pipeline_status": "not_run"
+            }
+        
+        risk_scores = risk_scores_data["scores"]
+        
+        # Create a lookup dictionary for quick access
+        risk_lookup = {acc["account_id"]: acc for acc in risk_scores}
+        
+        # Get transaction data to enrich with activity metrics
+        transactions = get_transactions()
+        
+        if transactions.empty:
+            return {
+                "status": "success",
+                "accounts": risk_scores[:limit],
+                "total_accounts": len(risk_scores),
+                "message": f"Risk scores available for {len(risk_scores)} accounts",
+                "pipeline_status": "completed"
+            }
+        
+        # Enrich risk scores with transaction metrics
+        enriched_accounts = []
+        
+        for account_id, risk_data in risk_lookup.items():
+            account_txns = transactions[transactions["account_id"] == account_id]
+            
+            enriched = {
+                **risk_data,
+                "transaction_count": len(account_txns),
+                "unique_counterparties": account_txns["counterparty_id"].nunique() if "counterparty_id" in account_txns.columns else 0,
+                "total_amount": float(account_txns["amount"].sum()) if "amount" in account_txns.columns else 0.0,
+                "avg_amount": float(account_txns["amount"].mean()) if "amount" in account_txns.columns else 0.0,
+            }
+            enriched_accounts.append(enriched)
+        
+        # Sort by ensemble_score (risk) descending
+        enriched_accounts = sorted(
+            enriched_accounts,
+            key=lambda x: x.get("ensemble_score", 0),
+            reverse=True
+        )[:limit]
+        
+        # Calculate summary statistics
+        all_scores = [acc.get("ensemble_score", 0) for acc in risk_scores]
+        critical_count = sum(1 for score in all_scores if score >= 0.85)
+        high_count = sum(1 for score in all_scores if 0.7 <= score < 0.85)
+        medium_count = sum(1 for score in all_scores if 0.45 <= score < 0.7)
+        low_count = sum(1 for score in all_scores if score < 0.45)
+        
+        return {
+            "status": "success",
+            "accounts": enriched_accounts,
+            "total_accounts": len(risk_scores),
+            "showing_count": len(enriched_accounts),
+            "risk_distribution": {
+                "critical": critical_count,
+                "high": high_count,
+                "medium": medium_count,
+                "low": low_count
+            },
+            "message": f"Risk scores available for {len(risk_scores)} accounts",
+            "pipeline_status": "completed"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching accounts with risk scores: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving risk scores: {str(e)}"
+        )

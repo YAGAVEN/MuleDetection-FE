@@ -9,6 +9,8 @@ from .api import (
     health_routes,
     ingestion_routes,
     pipeline_routes,
+    shap_routes,
+    chronos_routes,
 )
 
 # Setup logging
@@ -29,9 +31,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
         "http://localhost:3000",
         "http://localhost:5001",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -62,6 +68,8 @@ async def shutdown_event():
 app.include_router(health_routes.router)
 app.include_router(ingestion_routes.router)
 app.include_router(pipeline_routes.router)
+app.include_router(shap_routes.router)
+app.include_router(chronos_routes.router)
 
 
 # Global exception handler

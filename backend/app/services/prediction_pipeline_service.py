@@ -48,7 +48,7 @@ class PredictionPipelineService:
             bins=[-0.01, 0.45, 0.7, 0.85, 1.01],
             labels=["LOW", "MEDIUM", "HIGH", "CRITICAL"],
         ).astype(str)
-        predictions["is_suspicious"] = (predictions["ensemble_score"] >= 0.7).astype(int)
+        predictions["is_suspicious"] = (predictions["ensemble_score"] >= 0.5).astype(int)
 
         predictions_csv = self.temp_dir / "predictions.csv"
         predictions.to_csv(predictions_csv, index=False)
