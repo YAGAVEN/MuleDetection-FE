@@ -28,6 +28,12 @@ class StorageService:
         output.write_text(json.dumps(data, indent=2), encoding="utf-8")
         return str(output)
 
+    def load_json(self, filename: str) -> Dict[str, Any] | None:
+        target = self.temp_data_dir / filename
+        if not target.exists():
+            return None
+        return json.loads(target.read_text(encoding="utf-8"))
+
     def mirror_to_feature_pipeline(self, filename: str) -> None:
         source = self.temp_data_dir / filename
         if not source.exists() or not self.mule_data_dir.exists():
@@ -50,6 +56,8 @@ class StorageService:
             "prediction_summary.json",
             "suspicious_accounts.json",
             "risk_scores.json",
+            "investigation_cases.json",
+            "ingestion_alerts.json",
         ]:
             target = self.temp_data_dir / filename
             if target.exists():

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, CheckCircle2, CloudUpload, Link2, PlayCircle, Server, Zap } from 'lucide-react'
+import { AlertCircle, CheckCircle2, CloudUpload, LoaderCircle, PlayCircle, Zap } from 'lucide-react'
 import GlassCard from './GlassCard'
 import { useMDEStore } from '../store/useMDEStore'
 
@@ -8,6 +8,7 @@ const statusTone = {
   completed: 'bg-emerald-500/15 border-emerald-300/30 text-emerald-200',
   running: 'bg-cyan-500/15 border-cyan-300/30 text-cyan-200 animate-pulse',
   queued: 'bg-slate-500/20 border-slate-300/20 text-slate-300',
+  failed: 'bg-rose-500/15 border-rose-300/30 text-rose-200',
 }
 
 const stageMessages = {
@@ -34,6 +35,7 @@ export default function DataIngestionPanel() {
   const uploadErrors = useMDEStore((s) => s.uploadErrors)
   const featurePipelineReady = useMDEStore((s) => s.featurePipelineReady)
   const pipeline = useMDEStore((s) => s.pipeline)
+  const pipelineMessage = useMDEStore((s) => s.pipelineMessage)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function DataIngestionPanel() {
           Stream Health: Stable
         </div>
       </div>
+      {pipelineMessage && <p className="mb-3 text-xs text-cyan-200">{pipelineMessage}</p>}
 
       {/* Pipeline Progress Indicator */}
       {featurePipelineReady && (
@@ -160,16 +163,22 @@ export default function DataIngestionPanel() {
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs uppercase tracking-widest text-cyan-300 mb-3">Pipeline Status</p>
           <div className="space-y-2">
-            {pipeline.map((step, idx) => (
+            {pipeline.map((step) => (
               <div key={step.key}>
                 <div className={`rounded-lg border p-2 text-xs flex items-center justify-between ${statusTone[step.status]}`}>
                   <span className="flex items-center gap-2">
                     {step.status === 'running' ? (
-                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity }}>
-                        <Zap size={12} className="text-cyan-400" />
-                      </motion.div>
+                      step.key === 'featureEngineering' || step.key === 'modelScoring' ? (
+                        <LoaderCircle size={12} className="text-cyan-300 animate-spin" />
+                      ) : (
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity }}>
+                          <Zap size={12} className="text-cyan-400" />
+                        </motion.div>
+                      )
                     ) : step.status === 'completed' ? (
                       <CheckCircle2 size={12} className="text-emerald-400" />
+                    ) : step.status === 'failed' ? (
+                      <AlertCircle size={12} className="text-rose-300" />
                     ) : (
                       <div className="w-3 h-3 rounded-full border border-slate-400" />
                     )}

@@ -10,11 +10,10 @@ export const KPI_CARDS = [
 ]
 
 export const PIPELINE_STEPS = [
-  { key: 'ingestion', label: 'Ingestion', status: 'completed' },
-  { key: 'featureEngineering', label: 'Feature Engineering', status: 'completed' },
-  { key: 'modelScoring', label: 'Model Scoring', status: 'running' },
+  { key: 'ingestion', label: 'Ingestion', status: 'queued' },
+  { key: 'featureEngineering', label: 'Feature Engineering', status: 'queued' },
+  { key: 'modelScoring', label: 'Model Scoring', status: 'queued' },
   { key: 'caseGeneration', label: 'Case Generation', status: 'queued' },
-  { key: 'visualReadiness', label: 'Visualization Ready', status: 'queued' },
 ]
 
 export const CASES = [
