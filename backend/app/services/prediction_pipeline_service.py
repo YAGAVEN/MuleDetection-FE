@@ -43,12 +43,15 @@ class PredictionPipelineService:
                 "ensemble_score": ensemble_score.round(6),
             }
         )
+        # Classify risk levels based on ensemble score distribution
         predictions["risk_level"] = pd.cut(
             predictions["ensemble_score"],
-            bins=[-0.01, 0.45, 0.7, 0.85, 1.01],
+            bins=[-0.01, 0.48, 0.52, 0.56, 1.01],
             labels=["LOW", "MEDIUM", "HIGH", "CRITICAL"],
         ).astype(str)
-        predictions["is_suspicious"] = (predictions["ensemble_score"] >= 0.5).astype(int)
+        # Flag accounts with above-median scores as suspicious
+        median_score = predictions["ensemble_score"].median()
+        predictions["is_suspicious"] = (predictions["ensemble_score"] > median_score).astype(int)
 
         predictions_csv = self.temp_dir / "predictions.csv"
         predictions.to_csv(predictions_csv, index=False)
