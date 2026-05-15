@@ -7,6 +7,9 @@ export default function SystemStatusPanel() {
   return (
     <GlassCard className="p-5">
       <h3 className="text-white font-semibold mb-3">System Status</h3>
+      {!health.length ? (
+        <p className="text-sm text-slate-300">No live system status available.</p>
+      ) : null}
       <div className="space-y-3">
         {health.map((item) => (
           <div key={item.label}>

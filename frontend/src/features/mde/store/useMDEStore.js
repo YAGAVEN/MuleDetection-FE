@@ -1,16 +1,12 @@
 import { create } from 'zustand'
 import {
-  ALERTS,
   CHRONOS_SERIES,
   HYDRA_LOGS,
-  KPI_CARDS,
   NETWORK_EDGES,
   NETWORK_NODES,
   PIPELINE_STEPS,
   SAR_QUEUE,
-  SYSTEM_HEALTH,
 } from '../data/mockMDEData'
-import { fetchCases } from '../services/mdeMockService'
 import api from '../../../services/api'
 
 const statusMap = {
@@ -43,6 +39,67 @@ const toPipelineSteps = (status = {}) => [
   },
 ]
 
+const normalizeCases = (results) => {
+  if (Array.isArray(results?.investigation_cases)) {
+    return results.investigation_cases
+  }
+  if (Array.isArray(results?.investigation_cases?.cases)) {
+    return results.investigation_cases.cases
+  }
+  return null
+}
+
+const normalizeAlerts = (results) => {
+  if (Array.isArray(results?.alerts)) {
+    return results.alerts
+  }
+  if (Array.isArray(results?.alerts?.alerts)) {
+    return results.alerts.alerts
+  }
+  return null
+}
+
+const normalizePredictionSummary = (results) => {
+  if (results?.prediction_summary && typeof results.prediction_summary === 'object') {
+    return results.prediction_summary
+  }
+  return null
+}
+
+const normalizeRiskScores = (results) => {
+  if (Array.isArray(results?.risk_scores)) {
+    return results.risk_scores
+  }
+  if (Array.isArray(results?.risk_scores?.scores)) {
+    return results.risk_scores.scores
+  }
+  return null
+}
+
+const normalizeSuspiciousAccounts = (results) => {
+  if (Array.isArray(results?.suspicious_accounts)) {
+    return results.suspicious_accounts
+  }
+  if (Array.isArray(results?.suspicious_accounts?.accounts)) {
+    return results.suspicious_accounts.accounts
+  }
+  return null
+}
+
+const normalizeSystemHealth = (results) => {
+  if (Array.isArray(results?.system_health)) {
+    return results.system_health
+  }
+  return null
+}
+
+const normalizeKpis = (results) => {
+  if (Array.isArray(results?.kpis)) {
+    return results.kpis
+  }
+  return null
+}
+
 export const useMDEStore = create((set, get) => ({
   sidebarCollapsed: false,
   query: '',
@@ -59,14 +116,20 @@ export const useMDEStore = create((set, get) => ({
   featurePipelineReady: false,
   chronosPlaying: true,
   cases: [],
-  kpis: KPI_CARDS,
+  kpis: [],
   pipeline: PIPELINE_STEPS,
   pipelineMessage: '',
   chronosSeries: CHRONOS_SERIES,
   hydraLogs: HYDRA_LOGS,
   sarQueue: SAR_QUEUE,
-  alerts: ALERTS,
-  systemHealth: SYSTEM_HEALTH,
+  alerts: [],
+  predictionSummary: null,
+  previousPredictionSummary: null,
+  riskScores: [],
+  suspiciousAccounts: [],
+  dashboardStatus: 'unknown',
+  dashboardStatusMessage: 'Connecting to backend...',
+  systemHealth: [],
   networkNodes: NETWORK_NODES,
   networkEdges: NETWORK_EDGES,
   pipelinePollInterval: null,
@@ -90,21 +153,119 @@ export const useMDEStore = create((set, get) => ({
     })),
   hydrateCases: async () => {
     await get().syncPipelineResults()
-    if (get().cases.length > 0) {
-      return
+  },
+  syncDashboard: async () => {
+    try {
+      const dashboard = await api.getDashboardSummary()
+      const nextState = {
+        dashboardStatus: 'online',
+        dashboardStatusMessage: 'Live runtime data',
+      }
+
+      const kpis = normalizeKpis(dashboard)
+      if (kpis) {
+        nextState.kpis = kpis
+      }
+
+      const health = normalizeSystemHealth(dashboard)
+      if (health) {
+        nextState.systemHealth = health
+      }
+
+      const alerts = normalizeAlerts(dashboard)
+      if (alerts) {
+        nextState.alerts = alerts
+      }
+
+      const cases = normalizeCases(dashboard)
+      if (cases) {
+        nextState.cases = cases
+      }
+
+      const riskScores = normalizeRiskScores(dashboard)
+      if (riskScores) {
+        nextState.riskScores = riskScores
+      }
+
+      const suspiciousAccounts = normalizeSuspiciousAccounts(dashboard)
+      if (suspiciousAccounts) {
+        nextState.suspiciousAccounts = suspiciousAccounts
+      }
+
+      const predictionSummary = normalizePredictionSummary(dashboard)
+      if (predictionSummary) {
+        nextState.predictionSummary = predictionSummary
+      }
+
+      set(nextState)
+    } catch {
+      set({
+        kpis: [],
+        alerts: [],
+        systemHealth: [],
+        dashboardStatus: 'offline',
+        dashboardStatusMessage: 'Backend offline',
+      })
     }
-    const cases = await fetchCases()
-    set({ cases })
   },
   syncPipelineResults: async () => {
     try {
       const results = await api.getPipelineResults()
       const nextState = {}
-      if (Array.isArray(results?.investigation_cases)) {
-        nextState.cases = results.investigation_cases
+      const cases = normalizeCases(results)
+      if (cases) {
+        nextState.cases = cases
       }
-      if (Array.isArray(results?.alerts)) {
-        nextState.alerts = results.alerts
+      const alerts = normalizeAlerts(results)
+      if (alerts) {
+        nextState.alerts = alerts
+      }
+      const riskScores = normalizeRiskScores(results)
+      if (riskScores) {
+        nextState.riskScores = riskScores
+      }
+      const suspiciousAccounts = normalizeSuspiciousAccounts(results)
+      if (suspiciousAccounts) {
+        nextState.suspiciousAccounts = suspiciousAccounts
+      }
+      const predictionSummary = normalizePredictionSummary(results)
+      if (predictionSummary) {
+        const current = get().predictionSummary
+        let previous = get().previousPredictionSummary
+
+        if (
+          current?.generated_at &&
+          predictionSummary?.generated_at &&
+          current.generated_at !== predictionSummary.generated_at
+        ) {
+          previous = current
+        }
+
+        if (typeof window !== 'undefined') {
+          try {
+            const cached = window.localStorage.getItem('mde:last_prediction_summary')
+            if (!previous && cached) {
+              const parsed = JSON.parse(cached)
+              if (
+                parsed?.generated_at &&
+                parsed.generated_at !== predictionSummary.generated_at
+              ) {
+                previous = parsed
+              }
+            }
+            window.localStorage.setItem(
+              'mde:last_prediction_summary',
+              JSON.stringify(predictionSummary),
+            )
+          } catch {
+            // Ignore localStorage errors and continue using in-memory trend state.
+          }
+        }
+
+        nextState.predictionSummary = predictionSummary
+        if (previous) {
+          nextState.previousPredictionSummary = previous
+        }
       }
       if (Object.keys(nextState).length > 0) {
         set(nextState)

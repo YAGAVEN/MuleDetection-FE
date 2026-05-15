@@ -15,6 +15,9 @@ export default function RecentAlertsPanel() {
   return (
     <GlassCard className="p-5">
       <h3 className="text-white font-semibold mb-3">Recent Alerts</h3>
+      {!alerts.length ? (
+        <p className="text-sm text-slate-300">No live alerts available.</p>
+      ) : null}
       <div className="space-y-2">
         {alerts.map((alert) => (
           <div key={alert.id} className={`rounded-lg border p-3 ${alertTone[alert.severity]}`}>
