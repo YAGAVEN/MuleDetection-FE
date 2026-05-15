@@ -56,6 +56,9 @@ class IngestionService:
         # Update pipeline status
         try:
             from .pipeline_status_service import pipeline_status_service
+            # Start every new upload with a fresh stage state so UI does not reuse
+            # "completed" states from previous runs.
+            pipeline_status_service.reset()
             pipeline_status_service.set_stage(
                 "ingestion",
                 "completed",
