@@ -100,6 +100,35 @@ const normalizeKpis = (results) => {
   return null
 }
 
+const normalizeModelInfo = (results) => {
+  if (results?.model_info && typeof results.model_info === 'object') {
+    return results.model_info
+  }
+  if (results && typeof results === 'object' && results.ensemble_model) {
+    return results
+  }
+  if (results?.model_versions && typeof results.model_versions === 'object') {
+    return {
+      ensemble_model: results.model_versions.ensemble || 'N/A',
+      lgbm_model: results.model_versions.lgbm || 'N/A',
+      gnn_model: results.model_versions.gnn || 'N/A',
+      shap_model: results.model_versions.shap || 'N/A',
+      model_artifacts: results.model_artifacts || {},
+      ensemble_weights: results.ensemble_weights || {},
+      shap_available: true,
+      loaded: true,
+      metrics: results.metrics || {},
+      command_center_version: results.version ?? 1,
+      gan_version: results.model_versions.gan || 'gan_v1.0',
+      attacker_score: results.attacker_score ?? 0,
+      defender_score: results.defender_score ?? 0,
+      resilience_score: results.resilience_score ?? 0,
+      training_status: results.training_status || 'idle',
+    }
+  }
+  return null
+}
+
 export const useMDEStore = create((set, get) => ({
   sidebarCollapsed: false,
   query: '',
@@ -121,10 +150,25 @@ export const useMDEStore = create((set, get) => ({
   pipelineMessage: '',
   chronosSeries: CHRONOS_SERIES,
   hydraLogs: HYDRA_LOGS,
+  hydraBattle: {
+    training_status: 'idle',
+    attacker_score: 0,
+    defender_score: 0,
+    resilience_score: 0,
+    active_attack_type: 'none',
+    gnn_status: 'stable',
+    ensemble_status: 'stable',
+    synthetic_patterns_generated: 0,
+    detected_patterns: 0,
+    round: 0,
+    is_running: false,
+  },
+  hydraEventSource: null,
   sarQueue: SAR_QUEUE,
   alerts: [],
   predictionSummary: null,
   previousPredictionSummary: null,
+  modelInfo: null,
   riskScores: [],
   suspiciousAccounts: [],
   dashboardStatus: 'unknown',
@@ -151,6 +195,87 @@ export const useMDEStore = create((set, get) => ({
       sortDirection:
         state.sortField === field && state.sortDirection === 'desc' ? 'asc' : 'desc',
     })),
+  appendHydraLog: (line) =>
+    set((state) => ({
+      hydraLogs: [line, ...state.hydraLogs].slice(0, 120),
+    })),
+  syncHydraBattleStatus: async () => {
+    try {
+      const response = await api.getHydraBattleStatus()
+      if (response?.battle) {
+        set({ hydraBattle: response.battle })
+      }
+    } catch {
+      // Keep existing hydra status when backend is unavailable.
+    }
+  },
+  startHydraBattle: async (rounds = 20, intervalSeconds = 2) => {
+    try {
+      const response = await api.startHydraBattle(rounds, intervalSeconds)
+      if (response?.battle) {
+        set({ hydraBattle: response.battle })
+      }
+      await get().connectHydraEvents()
+    } catch (error) {
+      get().appendHydraLog(
+        `[${new Date().toLocaleTimeString()}] Failed to start HYDRA battle: ${error?.message || 'Unknown error'}`,
+      )
+      set((state) => ({
+        hydraBattle: {
+          ...state.hydraBattle,
+          training_status: 'failed',
+          is_running: false,
+        },
+      }))
+    }
+  },
+  stopHydraBattle: async () => {
+    try {
+      const response = await api.stopHydraBattle()
+      if (response?.battle) {
+        set({ hydraBattle: response.battle })
+      }
+    } catch {
+      // Keep existing state.
+    } finally {
+      get().disconnectHydraEvents()
+    }
+  },
+  connectHydraEvents: async () => {
+    const existing = get().hydraEventSource
+    if (existing) {
+      return
+    }
+    if (typeof window === 'undefined') {
+      return
+    }
+    const baseURL = api.baseURL
+    const source = new EventSource(`${baseURL}/hydra/battle/events`)
+    source.addEventListener('hydra', (event) => {
+      try {
+        const payload = JSON.parse(event.data || '{}')
+        if (payload?.message) {
+          get().appendHydraLog(`[${new Date().toLocaleTimeString()}] ${payload.message}`)
+        }
+      } catch {
+        // Ignore malformed events.
+      }
+    })
+    source.addEventListener('heartbeat', () => {
+      get().syncHydraBattleStatus()
+    })
+    source.onerror = () => {
+      get().disconnectHydraEvents()
+    }
+    set({ hydraEventSource: source })
+  },
+  disconnectHydraEvents: () => {
+    const source = get().hydraEventSource
+    if (source) {
+      source.close()
+    }
+    set({ hydraEventSource: null })
+  },
   hydrateCases: async () => {
     await get().syncPipelineResults()
   },
@@ -197,6 +322,11 @@ export const useMDEStore = create((set, get) => ({
         nextState.predictionSummary = predictionSummary
       }
 
+      const modelInfo = normalizeModelInfo(dashboard)
+      if (modelInfo) {
+        nextState.modelInfo = modelInfo
+      }
+
       set(nextState)
     } catch {
       set({
@@ -206,6 +336,31 @@ export const useMDEStore = create((set, get) => ({
         dashboardStatus: 'offline',
         dashboardStatusMessage: 'Backend offline',
       })
+    }
+  },
+  syncModelInfo: async () => {
+    try {
+      const modelInfoPayload = await api.getModelInfo()
+      const modelInfo = normalizeModelInfo(modelInfoPayload)
+      const nextState = {}
+      if (modelInfo) {
+        nextState.modelInfo = {
+          ...modelInfo,
+          metrics: modelInfo?.metrics || modelInfoPayload?.metrics || {},
+          command_center_version:
+            modelInfo?.command_center_version ?? modelInfoPayload?.version ?? 1,
+          gan_version: modelInfo?.gan_version || modelInfoPayload?.model_versions?.gan || 'gan_v1.0',
+        }
+      }
+      const predictionSummary = normalizePredictionSummary(modelInfoPayload)
+      if (predictionSummary) {
+        nextState.predictionSummary = predictionSummary
+      }
+      if (Object.keys(nextState).length > 0) {
+        set(nextState)
+      }
+    } catch {
+      // Keep current state when model-info endpoint is unavailable.
     }
   },
   syncPipelineResults: async () => {

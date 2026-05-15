@@ -1,16 +1,18 @@
-"""Hydra routes for GAN-based synthetic money laundering pattern generation and detection"""
-from fastapi import APIRouter, HTTPException
+"""Hydra routes for GAN-based synthetic AML generation and live battle orchestration."""
+import asyncio
 from datetime import datetime
-from typing import Dict, Any, List, Optional
-import pandas as pd
-import numpy as np
 import logging
 import uuid
+from typing import Any, Dict, List
 
-from ..services.gan_training import get_gan_service
+import numpy as np
+import pandas as pd
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+
 from .mule_routes import MLEnsemblePredictor, get_risk_level
-from ..data import get_account_features
 from pydantic import BaseModel, Field
+from ..hydra import get_hydra_orchestrator
 
 router = APIRouter(prefix="/api/hydra", tags=["Hydra - Pattern Generation"])
 logger = logging.getLogger(__name__)
@@ -22,6 +24,11 @@ class PatternRequest(BaseModel):
     pattern_type: str = Field(..., description="Pattern type (layering_scheme, structuring, etc)")
     transactions: List[Dict[str, Any]] = Field(..., description="Transaction steps")
     complexity_score: float = Field(..., description="Pattern complexity (0-100)")
+
+
+class HydraBattleRequest(BaseModel):
+    rounds: int = Field(20, ge=1, le=500, description="Number of adversarial rounds")
+    interval_seconds: float = Field(2.0, ge=0.5, le=30, description="Delay between rounds")
 
 
 class SimulationStats:
@@ -178,22 +185,22 @@ async def generate_pattern() -> Dict[str, Any]:
     """
     try:
         # Get GAN service
+        from ..services.gan_training import get_gan_service
         gan_service = get_gan_service()
         
         # Generate synthetic data (8 samples)
         synthetic_result = gan_service.generate_synthetic_data(8)
         
-        if synthetic_result is None or "synthetic_data" not in synthetic_result:
+        if synthetic_result is None:
             raise HTTPException(
                 status_code=500,
                 detail="Failed to generate synthetic data from GAN"
             )
         
-        # Extract synthetic data
-        synthetic_data = synthetic_result.get("synthetic_data", np.array([]))
-        
-        if isinstance(synthetic_data, list):
-            synthetic_data = np.array(synthetic_data)
+        synthetic_payload = synthetic_result.get("data")
+        if synthetic_payload is None:
+            synthetic_payload = synthetic_result.get("synthetic_data", [])
+        synthetic_data = np.array(synthetic_payload)
         
         # Map to transaction steps
         transactions = map_synthetic_to_transactions(synthetic_data, num_steps=8)
@@ -338,15 +345,17 @@ async def run_simulation(rounds: int = 10) -> Dict[str, Any]:
         for round_num in range(rounds):
             try:
                 # Generate pattern
+                from ..services.gan_training import get_gan_service
                 gan_service = get_gan_service()
                 synthetic_result = gan_service.generate_synthetic_data(8)
                 
-                if synthetic_result is None or "synthetic_data" not in synthetic_result:
+                if synthetic_result is None:
                     continue
                 
-                synthetic_data = synthetic_result.get("synthetic_data", np.array([]))
-                if isinstance(synthetic_data, list):
-                    synthetic_data = np.array(synthetic_data)
+                synthetic_payload = synthetic_result.get("data")
+                if synthetic_payload is None:
+                    synthetic_payload = synthetic_result.get("synthetic_data", [])
+                synthetic_data = np.array(synthetic_payload)
                 
                 transactions = map_synthetic_to_transactions(synthetic_data, num_steps=8)
                 complexity = calculate_complexity_score(transactions)
@@ -408,3 +417,45 @@ async def run_simulation(rounds: int = 10) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error running simulation: {e}")
         raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
+
+
+@router.post("/battle/start")
+async def start_hydra_battle(request: HydraBattleRequest) -> Dict[str, Any]:
+    """Start unified HYDRA attacker-vs-defender loop with existing models."""
+    orchestrator = get_hydra_orchestrator()
+    try:
+        status = orchestrator.start(rounds=request.rounds, interval_seconds=request.interval_seconds)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return {"status": "success", "battle": status}
+
+
+@router.post("/battle/stop")
+async def stop_hydra_battle() -> Dict[str, Any]:
+    orchestrator = get_hydra_orchestrator()
+    status = orchestrator.stop()
+    return {"status": "success", "battle": status}
+
+
+@router.get("/battle/status")
+async def hydra_battle_status() -> Dict[str, Any]:
+    orchestrator = get_hydra_orchestrator()
+    return {"status": "success", "battle": orchestrator.status()}
+
+
+@router.get("/battle/events")
+async def hydra_battle_events(last_event_id: int = 0):
+    """SSE stream for live attacker-vs-defender events."""
+    orchestrator = get_hydra_orchestrator()
+
+    async def event_stream():
+        current_id = last_event_id
+        while True:
+            payload = orchestrator.sse_payload(current_id)
+            latest = orchestrator.events_since(current_id)
+            if latest:
+                current_id = latest[-1]["id"]
+            yield payload
+            await asyncio.sleep(1.0)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
