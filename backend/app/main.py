@@ -5,10 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
-from .database import init_supabase, get_db_service
-from .services.ml_models import get_model_manager
-from .services.gan_training import get_gan_service
-from .api import health_routes, ml_routes, db_routes, gan_routes, auth_routes, chronos_routes, mule_routes, hydra_routes
+from .api import (
+    health_routes,
+    ingestion_routes,
+    pipeline_routes,
+)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -46,27 +47,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize services on startup"""
+    """Initialize API services on startup"""
     logger.info("Starting Trinetra Mule Detection API...")
-    
-    try:
-        init_supabase()
-        logger.info("✓ Supabase initialized")
-    except Exception as e:
-        logger.error(f"✗ Failed to initialize Supabase: {e}")
-    
-    try:
-        get_model_manager()
-        logger.info("✓ ML models loaded")
-    except Exception as e:
-        logger.error(f"✗ Failed to load ML models: {e}")
-    
-    try:
-        get_gan_service()
-        logger.info("✓ GAN service initialized")
-    except Exception as e:
-        logger.error(f"✗ Failed to initialize GAN service: {e}")
-    
     logger.info("Startup complete!")
 
 
@@ -78,13 +60,8 @@ async def shutdown_event():
 
 # Include routers
 app.include_router(health_routes.router)
-app.include_router(auth_routes.router)
-app.include_router(ml_routes.router)
-app.include_router(db_routes.router)
-app.include_router(gan_routes.router)
-app.include_router(chronos_routes.router)
-app.include_router(mule_routes.router)
-app.include_router(hydra_routes.router)
+app.include_router(ingestion_routes.router)
+app.include_router(pipeline_routes.router)
 
 
 # Global exception handler
@@ -105,15 +82,17 @@ async def root():
     return {
         "name": "Trinetra Mule Detection API",
         "version": "1.0.0",
-        "description": "ML-powered mule account detection system with GAN augmentation",
+        "description": "AML ingestion and system status API",
         "endpoints": {
             "documentation": "/docs",
             "openapi": "/openapi.json",
             "health": "/api/v1/health",
             "status": "/api/v1/status",
-            "ml": "/api/v1/ml",
-            "database": "/api/v1/db",
-            "gan": "/api/v1/gan"
+            "ingestion_upload": "/api/ingestion/upload",
+            "ingestion_status": "/api/ingestion/status",
+            "ingestion_summary": "/api/ingestion/summary",
+            "ingestion_clear": "/api/ingestion/clear",
+            "pipeline_status": "/api/pipeline/status",
         }
     }
 

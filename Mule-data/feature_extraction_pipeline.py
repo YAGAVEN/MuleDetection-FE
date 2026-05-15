@@ -15,11 +15,17 @@ warnings.filterwarnings('ignore')
 # ============================================================
 
 CONFIG = {
-    'data_path': 'Mule-data/',
-    'output_path': 'Mule-data/features/',
+    'data_path': os.getenv('FEATURE_PIPELINE_DATA_PATH', 'Mule-data/'),
+    'output_path': os.getenv('FEATURE_PIPELINE_OUTPUT_PATH', 'Mule-data/features/'),
     'reference_date': pd.Timestamp('2025-06-30'),
     'random_seed': 42,
 }
+
+# Ensure paths end with /
+if not CONFIG['data_path'].endswith('/'):
+    CONFIG['data_path'] += '/'
+if not CONFIG['output_path'].endswith('/'):
+    CONFIG['output_path'] += '/'
 
 os.makedirs(CONFIG['output_path'], exist_ok=True)
 np.random.seed(CONFIG['random_seed'])
@@ -337,10 +343,16 @@ print("✓ channel features")
 transactions['hour'] = transactions['transaction_timestamp'].dt.hour
 within_6h = ((transactions['hour'] >= 6) & (transactions['hour'] <= 12)).astype(int)
 
-time_agg = transactions.groupby('account_id').agg(
-    pct_within_6h = (within_6h, lambda x: x.mean() * 100),
-    txn_per_day = ('transaction_timestamp', lambda x: len(x) / (x.max() - x.min()).days),
-).reset_index()
+# Create temporary column for aggregation
+transactions['within_6h'] = within_6h
+
+time_agg = transactions.groupby('account_id').agg({
+    'within_6h': lambda x: x.mean() * 100,
+    'transaction_timestamp': lambda x: len(x) / max((x.max() - x.min()).days, 1),
+}).rename(columns={
+    'within_6h': 'pct_within_6h',
+    'transaction_timestamp': 'txn_per_day'
+}).reset_index()
 
 feat = feat.merge(time_agg, on='account_id', how='left')
 print("✓ time-based features")
