@@ -212,5 +212,188 @@ class SHAPReportService:
             logger.error(f"Error retrieving account explanation: {e}")
             raise
 
+    async def get_high_risk_accounts_for_sar(self, limit: int = 10) -> Dict[str, Any]:
+        """
+        Get high-risk accounts with SHAP explanations for SAR report generation.
+        Returns top N accounts by risk score with detailed feature contributions.
+        
+        Args:
+            limit: Maximum number of high-risk accounts to return
+            
+        Returns:
+            Dictionary with high-risk accounts and risk explanations
+        """
+        try:
+            reports_path = self.temp_dir / "shap_model_reports.json"
+            
+            if not reports_path.exists():
+                logger.warning("No shap_model_reports.json found")
+                return {
+                    "status": "success",
+                    "high_risk_accounts": [],
+                    "total_high_risk": 0,
+                    "message": "No risk assessment data available. Run feature extraction first."
+                }
+
+            with open(reports_path, 'r') as f:
+                data = json.load(f)
+
+            # Get reports sorted by ensemble_score (already sorted in generation)
+            all_reports = data.get('accounts', [])
+            logger.info(f"Found {len(all_reports)} suspicious accounts in SHAP reports")
+            
+            if not all_reports:
+                logger.warning("No accounts found in SHAP reports")
+                return {
+                    "status": "success",
+                    "high_risk_accounts": [],
+                    "total_high_risk": 0,
+                    "message": "No suspicious accounts in reports"
+                }
+
+            # Take top N high-risk accounts
+            high_risk_accounts = []
+            for report in all_reports[:limit]:
+                try:
+                    # Extract top contributing features with risk explanations
+                    top_features = report.get('top_risk_features', [])[:5]
+                    
+                    if not top_features:
+                        logger.warning(f"No top_risk_features for account {report.get('account_id')}")
+                        continue
+
+                    # Build risk factors from top_risk_features
+                    top_risk_factors = []
+                    for feat in top_features:
+                        try:
+                            feature_name = feat.get('feature_name', 'Unknown')
+                            shap_value = float(feat.get('shap_value', 0))
+                            
+                            factor = {
+                                "feature": feature_name,
+                                "contribution": shap_value,
+                                "impact": self._calculate_impact(shap_value),
+                                "explanation": self._generate_feature_explanation(feature_name, shap_value)
+                            }
+                            top_risk_factors.append(factor)
+                        except Exception as feat_err:
+                            logger.error(f"Error processing feature {feat}: {feat_err}")
+                            continue
+
+                    if not top_risk_factors:
+                        logger.warning(f"Could not process any risk factors for {report.get('account_id')}")
+                        continue
+                    
+                    ensemble_score = float(report.get('ensemble_score', 0))
+                    gnn_score = float(report.get('gnn_score', 0))
+                    lightgbm_score = float(report.get('lightgbm_score', 0))
+
+                    account_data = {
+                        "account_id": str(report.get('account_id', 'Unknown')),
+                        "risk_score": ensemble_score,
+                        "risk_level": str(report.get('risk_level', 'UNKNOWN')),
+                        "gnn_score": gnn_score,
+                        "lightgbm_score": lightgbm_score,
+                        "top_risk_factors": top_risk_factors,
+                        "risk_summary": self._generate_risk_summary(
+                            ensemble_score,
+                            str(report.get('risk_level', 'UNKNOWN')),
+                            top_risk_factors
+                        )
+                    }
+                    high_risk_accounts.append(account_data)
+                    
+                except Exception as acc_err:
+                    logger.error(f"Error processing account {report.get('account_id')}: {acc_err}")
+                    continue
+
+            logger.info(f"Successfully processed {len(high_risk_accounts)} high-risk accounts for SAR")
+
+            return {
+                "status": "success",
+                "high_risk_accounts": high_risk_accounts,
+                "total_high_risk": len(high_risk_accounts),
+                "generated_at": data.get('generated_at'),
+                "message": f"Retrieved {len(high_risk_accounts)} high-risk accounts for SAR report"
+            }
+
+        except Exception as e:
+            logger.error(f"Error retrieving high-risk accounts: {e}", exc_info=True)
+            return {
+                "status": "error",
+                "high_risk_accounts": [],
+                "total_high_risk": 0,
+                "error": str(e),
+                "message": f"Failed to retrieve high-risk accounts: {str(e)}"
+            }
+
+    def _calculate_impact(self, shap_value: float) -> str:
+        """Calculate impact level based on SHAP value magnitude"""
+        magnitude = abs(shap_value)
+        if magnitude > 100:
+            return "CRITICAL"
+        elif magnitude > 50:
+            return "High"
+        elif magnitude > 10:
+            return "Medium"
+        else:
+            return "Low"
+
+    def _generate_feature_explanation(self, feature_name: str, shap_value: float) -> str:
+        """Generate human-readable explanation for feature contribution"""
+        feature_explanations = {
+            "structuring_40k_50k_pct": "Frequent transactions in $40K-$50K range (structuring indicator)",
+            "is_frozen": "Account flagged as frozen or restricted",
+            "velocity_spike_3d": "Abnormal transaction velocity in 3-day period",
+            "amt_round_multiples": "Multiple transactions in round amounts",
+            "night_txn_pct": "High percentage of transactions during night hours",
+            "weekend_txn_pct": "Unusual transaction activity during weekends",
+            "kyc_non_compliant": "KYC documentation deficiencies",
+            "fan_in_ratio": "Multiple incoming fund sources (potential layering)",
+            "fan_out_ratio": "Multiple outgoing fund destinations",
+            "unique_counterparties": "Low diversity in transaction counterparties",
+            "sender_concentration": "High concentration of funds from single source",
+            "amt_exact_10k_pct": "Percentage of exact $10,000 transactions",
+            "amt_exact_100k_pct": "Percentage of exact $100,000 transactions",
+            "has_mobile_spike": "Unusual mobile banking activity",
+            "pin_mismatch": "PIN entry mismatches or authentication issues"
+        }
+        
+        base_explanation = feature_explanations.get(
+            feature_name,
+            f"Anomalous pattern detected in {feature_name.replace('_', ' ')}"
+        )
+        
+        direction = "increases" if shap_value > 0 else "decreases"
+        magnitude = abs(shap_value)
+        
+        return f"{base_explanation} - {direction} risk score by {magnitude:.2f} points"
+
+    def _generate_risk_summary(self, risk_score: float, risk_level: str, top_features: List[Dict]) -> str:
+        """Generate executive summary of account risk"""
+        risk_percentage = min(risk_score * 100, 100)
+        
+        summary = f"Account classified as {risk_level} Risk (Score: {risk_percentage:.1f}%). "
+        
+        if top_features:
+            if isinstance(top_features, list) and len(top_features) > 0:
+                # Handle both dict with 'feature_name' key and dict with 'feature' key
+                top_factor = None
+                if isinstance(top_features[0], dict):
+                    top_factor = top_features[0].get('feature_name') or top_features[0].get('feature', 'Unknown factor')
+                else:
+                    top_factor = str(top_features[0])
+                
+                summary += f"Primary risk indicator: {str(top_factor).replace('_', ' ')}. "
+        
+        if risk_score > 0.8:
+            summary += "Immediate investigation and SAR filing recommended."
+        elif risk_score > 0.6:
+            summary += "Enhanced monitoring and investigation warranted."
+        else:
+            summary += "Continued monitoring advised."
+        
+        return summary
+
 
 shap_report_service = SHAPReportService()

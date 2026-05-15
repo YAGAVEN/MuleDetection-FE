@@ -63,6 +63,62 @@ async def get_account_explanation(account_id: str) -> Dict[str, Any]:
         )
 
 
+@router.get("/debug/shap-data")
+async def debug_shap_data() -> Dict[str, Any]:
+    """
+    DEBUG endpoint to check if SHAP data is being loaded correctly.
+    Returns raw SHAP reports data for troubleshooting.
+    """
+    try:
+        result = await shap_report_service.get_model_reports(limit=5)
+        return {
+            "status": "success",
+            "raw_reports": result,
+            "message": "Raw SHAP data retrieved for debugging"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "message": "Failed to retrieve raw SHAP data"
+        }
+
+
+@router.get("/high-risk-accounts")
+async def get_high_risk_accounts_for_sar(
+    limit: int = Query(10, ge=1, le=50, description="Number of high-risk accounts to return")
+) -> Dict[str, Any]:
+    """
+    Get high-risk accounts with SHAP explanations for SAR reports.
+    Returns accounts with high risk scores and their feature contributions explaining why.
+    
+    Args:
+        limit: Maximum number of high-risk accounts to return
+        
+    Returns:
+        JSON response with high-risk accounts and detailed SHAP explanations
+    """
+    try:
+        result = await shap_report_service.get_high_risk_accounts_for_sar(limit=limit)
+        return result
+    except FileNotFoundError as e:
+        return {
+            "status": "error",
+            "high_risk_accounts": [],
+            "total_high_risk": 0,
+            "error": str(e),
+            "message": f"Risk assessment data not found: {str(e)}"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "high_risk_accounts": [],
+            "total_high_risk": 0,
+            "error": str(e),
+            "message": f"Error retrieving high-risk accounts: {str(e)}"
+        }
+
+
 @router.post("/generate-reports")
 async def generate_model_reports() -> Dict[str, Any]:
     """
