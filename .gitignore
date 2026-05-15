@@ -9,6 +9,7 @@
 *.env
 *.json
 *.json
+*.zip
 
 # ============================================================
 # PYTHON & VIRTUAL ENVIRONMENTS

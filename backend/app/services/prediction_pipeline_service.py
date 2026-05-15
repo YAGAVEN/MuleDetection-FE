@@ -4,15 +4,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-import numpy as np
 import pandas as pd
 
+from .ml_models import get_model_manager
 from .storage_service import storage_service
 
 
 class PredictionPipelineService:
     def __init__(self) -> None:
         self.temp_dir = storage_service.temp_data_dir
+        self.model_manager = get_model_manager()
 
     async def run(self) -> Dict[str, Any]:
         features_csv = self.temp_dir / "engineered_features.csv"
@@ -23,32 +24,39 @@ class PredictionPipelineService:
         if dataframe.empty:
             raise ValueError("engineered_features.csv is empty")
 
-        numeric = dataframe.select_dtypes(include=["number"]).copy()
+        numeric = dataframe.select_dtypes(include=["number", "bool"]).copy()
         if numeric.empty:
             raise ValueError("No numeric features available for prediction")
 
-        scaled = (numeric.fillna(0) - numeric.fillna(0).mean()) / (numeric.fillna(0).std(ddof=0) + 1e-6)
-        lightgbm_signal = scaled.mean(axis=1)
-        gnn_signal = scaled.median(axis=1)
-
-        lightgbm_score = 1 / (1 + np.exp(-lightgbm_signal))
-        gnn_score = 1 / (1 + np.exp(-gnn_signal))
-        ensemble_score = (0.6 * lightgbm_score) + (0.4 * gnn_score)
-
-        predictions = pd.DataFrame(
-            {
-                "account_id": dataframe["account_id"] if "account_id" in dataframe.columns else dataframe.index.astype(str),
-                "lightgbm_score": lightgbm_score.round(6),
-                "gnn_score": gnn_score.round(6),
-                "ensemble_score": ensemble_score.round(6),
+        prediction_rows: list[dict[str, Any]] = []
+        for row_index, (_, row) in enumerate(dataframe.iterrows()):
+            account_id = (
+                str(row["account_id"])
+                if "account_id" in dataframe.columns and pd.notna(row["account_id"])
+                else str(row_index)
+            )
+            features = {
+                column: float(value)
+                for column, value in row.items()
+                if column in numeric.columns and pd.notna(value)
             }
-        )
+            prediction = self.model_manager.predict_mule_score(account_id, features)
+            prediction_rows.append(
+                {
+                    "account_id": account_id,
+                    "lightgbm_score": round(float(prediction["lgbm_score"]), 6),
+                    "gnn_score": round(float(prediction["gnn_score"]), 6),
+                    "ensemble_score": round(float(prediction["ensemble_score"]), 6),
+                }
+            )
+
+        predictions = pd.DataFrame(prediction_rows)
         predictions["risk_level"] = pd.cut(
             predictions["ensemble_score"],
-            bins=[-0.01, 0.45, 0.7, 0.85, 1.01],
+            bins=[-0.01, 25.0, 50.0, 75.0, 100.01],
             labels=["LOW", "MEDIUM", "HIGH", "CRITICAL"],
         ).astype(str)
-        predictions["is_suspicious"] = (predictions["ensemble_score"] >= 0.7).astype(int)
+        predictions["is_suspicious"] = (predictions["ensemble_score"] >= 70.0).astype(int)
 
         predictions_csv = self.temp_dir / "predictions.csv"
         predictions.to_csv(predictions_csv, index=False)
@@ -99,7 +107,7 @@ class PredictionPipelineService:
             cases.append(
                 {
                     "id": f"MDE-{24000 + index + 1}",
-                    "riskScore": int(round(score * 100)),
+                    "riskScore": int(round(score)),
                     "riskLevel": risk_level,
                     "pattern": "Anomalous transfer behavior",
                     "accounts": 1,
@@ -121,7 +129,7 @@ class PredictionPipelineService:
         alerts: list[Dict[str, str]] = []
         for index, row in top.iterrows():
             score = float(row.get("ensemble_score", 0.0))
-            severity = "critical" if score >= 0.85 else "high" if score >= 0.7 else "medium"
+            severity = "critical" if score >= 85.0 else "high" if score >= 70.0 else "medium"
             alerts.append(
                 {
                     "id": f"AL-{9000 + index + 1}",
