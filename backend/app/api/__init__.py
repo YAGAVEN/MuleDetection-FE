@@ -5,4 +5,5 @@ from . import (
     hydra_routes,
     ingestion_routes,
     pipeline_routes,
+    analysis_routes,
 )

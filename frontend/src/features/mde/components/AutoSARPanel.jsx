@@ -1,4 +1,4 @@
-import { FileCheck2, FileOutput, ShieldAlert } from 'lucide-react'
+import { FileCheck2, FileOutput, ShieldAlert, RefreshCw } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import GlassCard from './GlassCard'
 import { useMDEStore } from '../store/useMDEStore'
@@ -8,14 +8,15 @@ export default function AutoSARPanel() {
   const queue = useMDEStore((s) => s.sarQueue)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [highRiskAccounts, setHighRiskAccounts] = useState([])
 
-  // Fetch high-risk accounts on component mount
+  // Fetch high-risk accounts on component mount and when queue changes
   useEffect(() => {
     const fetchHighRiskAccounts = async () => {
       try {
-        console.log('🔍 Fetching high-risk accounts from API...')
-        const response = await fetch('http://localhost:8000/api/shap/high-risk-accounts?limit=10')
+        console.log('🔍 Fetching fresh high-risk accounts from API...')
+        const response = await fetch('http://127.0.0.1:8000/api/shap/high-risk-accounts?limit=10')
         
         if (!response.ok) {
           throw new Error(`API Error: ${response.status} ${response.statusText}`)
@@ -46,7 +47,31 @@ export default function AutoSARPanel() {
     }
     
     fetchHighRiskAccounts()
-  }, [])
+  }, [queue.length])
+
+  const refreshData = async () => {
+    setIsRefreshing(true)
+    try {
+      console.log('🔄 Refreshing newly ingested data...')
+      const response = await fetch('http://127.0.0.1:8000/api/shap/high-risk-accounts?limit=10')
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      const accounts = data.high_risk_accounts || []
+      
+      setHighRiskAccounts(accounts)
+      console.log(`✅ Refreshed! Now showing ${accounts.length} high-risk accounts`)
+      alert(`✅ Data refreshed! Now showing ${accounts.length} high-risk accounts with newly ingested data.`)
+    } catch (error) {
+      console.error('❌ Error refreshing data:', error)
+      alert('❌ Failed to refresh: ' + error.message)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const generateReport = async () => {
     try {
@@ -68,17 +93,15 @@ export default function AutoSARPanel() {
       const highRiskAccountsReport = highRiskAccounts.map((account, idx) => ({
         rank: idx + 1,
         account_id: account.account_id,
-        risk_score: (account.risk_score * 100).toFixed(1),
+        risk_score: account.risk_score, // Keep as raw value (0-1 scale)
         risk_level: account.risk_level,
-        models: {
-          lightgbm: (account.lightgbm_score * 100).toFixed(1),
-          gnn: (account.gnn_score * 100).toFixed(1)
-        },
+        lightgbm_score: account.lightgbm_score, // Store as raw values for PDF to use
+        gnn_score: account.gnn_score,
         risk_summary: account.risk_summary,
         top_risk_factors: account.top_risk_factors.map((factor, factorIdx) => ({
           rank: factorIdx + 1,
-          feature: factor.feature.replace(/_/g, ' ').toUpperCase(),
-          contribution: factor.contribution.toFixed(2),
+          feature_name: factor.feature.replace(/_/g, ' ').toUpperCase(),
+          contribution: factor.contribution,
           impact: factor.impact,
           explanation: factor.explanation
         }))
@@ -192,21 +215,18 @@ export default function AutoSARPanel() {
       const highRiskAccountsExport = highRiskAccounts.map((account, idx) => ({
         rank: idx + 1,
         account_id: account.account_id,
-        risk_score: (account.risk_score * 100).toFixed(1),
+        risk_score: account.risk_score,
         risk_level: account.risk_level,
-        models: {
-          lightgbm_score: (account.lightgbm_score * 100).toFixed(1),
-          gnn_score: (account.gnn_score * 100).toFixed(1),
-          model_agreement: Math.abs(account.lightgbm_score - account.gnn_score) < 0.1 ? 'Strong' : 'Moderate'
-        },
+        lightgbm_score: account.lightgbm_score,
+        gnn_score: account.gnn_score,
+        model_agreement: Math.abs(account.lightgbm_score - account.gnn_score) < 0.1 ? 'Strong' : 'Moderate',
         risk_summary: account.risk_summary,
         top_risk_factors: account.top_risk_factors.map((factor, idx) => ({
           rank: idx + 1,
-          feature_name: factor.feature.replace(/_/g, ' ').toUpperCase(),
-          shap_contribution: factor.contribution.toFixed(4),
-          impact_level: factor.impact,
-          detailed_explanation: factor.explanation,
-          risk_direction: factor.contribution > 0 ? 'INCREASES RISK' : 'DECREASES RISK'
+          feature_name: factor.feature?.replace(/_/g, ' ').toUpperCase() || factor.feature_name || 'Unknown',
+          contribution: factor.contribution,
+          impact: factor.impact,
+          explanation: factor.explanation
         }))
       }))
 
@@ -215,16 +235,14 @@ export default function AutoSARPanel() {
         account_number: acc.account_id,
         rank: idx + 1,
         risk_classification: acc.risk_level,
-        overall_risk_percentage: (acc.risk_score * 100).toFixed(1),
-        model_breakdown: {
-          lightgbm_behavioral_score: (acc.lightgbm_score * 100).toFixed(1),
-          gnn_network_score: (acc.gnn_score * 100).toFixed(1)
-        },
-        top_three_risk_indicators: acc.top_risk_factors.slice(0, 3).map(f => ({
-          indicator: f.feature,
+        overall_risk_percentage: acc.risk_score,
+        lightgbm_score: acc.lightgbm_score,
+        gnn_score: acc.gnn_score,
+        top_three_risk_indicators: acc.top_risk_factors?.slice(0, 3).map(f => ({
+          indicator: f.feature || f.feature_name,
           reason: f.explanation,
           severity: f.impact
-        })),
+        })) || [],
         investigation_priority: acc.risk_level === 'CRITICAL' ? 'IMMEDIATE' : acc.risk_level === 'HIGH' ? 'URGENT' : 'MONITOR'
       }))
 
@@ -505,6 +523,14 @@ KEY FINDINGS
       )}
 
       <div className="mt-4 flex items-center gap-2">
+        <button 
+          onClick={refreshData}
+          disabled={isRefreshing}
+          className="px-3 py-2 rounded-lg border border-green-300/30 bg-green-500/10 text-green-100 text-xs inline-flex items-center gap-1 hover:bg-green-500/20 transition disabled:opacity-50"
+          title="Refresh newly ingested data from backend"
+        >
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} /> {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+        </button>
         <button 
           onClick={generateReport}
           disabled={isGenerating}

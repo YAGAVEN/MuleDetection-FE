@@ -2,11 +2,11 @@
 FEATURE ENGINEERING SUMMARY
 ============================================================
 
-Total features: 90
-Total accounts: 30
-Labeled accounts: 30
-Mules: 10
-Legitimate: 20
+Total features: 80
+Total accounts: 100
+Labeled accounts: 100
+Mules: 56
+Legitimate: 44
 
 Feature columns:
     1. account_id

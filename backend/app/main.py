@@ -14,6 +14,7 @@ from .api import (
     pipeline_routes,
     shap_routes,
     chronos_routes,
+    analysis_routes,
 )
 
 # Setup logging
@@ -77,6 +78,12 @@ async def shutdown_event():
 app.include_router(health_routes.router)
 app.include_router(ingestion_routes.router)
 app.include_router(pipeline_routes.router)
+app.include_router(shap_routes.router)
+app.include_router(dashboard_routes.router)
+app.include_router(hydra_routes.router)
+app.include_router(chronos_routes.router)
+app.include_router(model_command_center_routes.router)
+app.include_router(analysis_routes.router)
 
 
 # Global exception handler
