@@ -5,10 +5,12 @@ import ProgressFlow from '../components/shared/ProgressFlow.jsx'
 import NotificationToast, { notify } from '../components/shared/NotificationToast.jsx'
 import { Icon } from '../components/Icons/IconSystem'
 import SARMapView from '../components/AutoSAR/SARMapView.jsx'
+import SHAPExplainer from '../components/AutoSAR/SHAPExplainer.jsx'
 
 export default function AutoSARPage() {
   const navigate = useNavigate()
   const autoSarRef = useRef(null)
+  const [activeTab, setActiveTab] = useState('sar') // 'sar' or 'shap'
 
   const [analysisRunning, setAnalysisRunning] = useState(false)
   const [mlResults, setMlResults] = useState([])
@@ -125,113 +127,146 @@ export default function AutoSARPage() {
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center text-4xl animate-[glow_2s_ease-in-out_infinite_alternate]">
-            <Icon name="FileText" size={48} className="text-white" />
+          <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-4xl animate-[glow_2s_ease-in-out_infinite_alternate]">
+            <Icon name="Zap" size={48} className="text-white" />
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-            Auto-SAR Generator
+          <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+            AUTOSAR
           </h1>
           <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-            AI-powered Suspicious Activity Report generation. Automatically detect and document potential financial
-            crimes with regulatory compliance.
+            Advanced AI-powered Suspicious Activity Reports and SHAP Model Explainability. Detect financial crimes and understand model predictions with full transparency.
           </p>
           <ProgressFlow activeStep="autosar" />
         </div>
 
-        {/* Controls + ML Results */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-8 mb-8">
-          {/* AI Analysis Panel */}
-          <div className="lg:col-span-1">
-            <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 border border-orange-500/20">
-              <h3 className="text-xl font-semibold mb-4 text-orange-500">🤖 AI Analysis</h3>
-              <div className="space-y-4">
-                <button
-                  onClick={performAIAnalysis}
-                  disabled={analysisRunning}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
-                >
-                  {analysisRunning ? 'Analyzing...' : 'Start AI Analysis'}
-                </button>
-                <button
-                  onClick={generateSARReport}
-                  disabled={generating}
-                  className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {generating ? 'Generating...' : 'Generate SAR Report'}
-                </button>
-                <button
-                  onClick={validateReport}
-                  disabled={validating}
-                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {validating ? 'Validating...' : '⚖️ Validate Report'}
-                </button>
-                <button
-                  onClick={exportPDF}
-                  disabled={exporting}
-                  className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {exporting ? 'Exporting...' : '📄 Export PDF'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* ML Results */}
-          <div className="lg:col-span-3 xl:col-span-4">
-            <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-8 border border-orange-500/20">
-              <h3 className="text-xl font-semibold mb-4 text-orange-500">🧠 ML Detection Results</h3>
-              <div className="space-y-4">
-                {analysisRunning && mlResults.length === 0 && (
-                  <div className="text-center py-8 animate-pulse text-gray-400">
-                    Running AI analysis on transaction data…
-                  </div>
-                )}
-                {!analysisRunning && mlResults.length === 0 && (
-                  <div className="text-gray-400 text-center py-8">
-                    Click "Start AI Analysis" to begin detection…
-                  </div>
-                )}
-                {mlResults.map((item) => (
-                  <MLResultCard key={item.label} {...item} />
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* Tab Navigation */}
+        <div className="mb-8 flex gap-4 justify-center flex-wrap">
+          <button
+            onClick={() => setActiveTab('sar')}
+            className={`px-8 py-3 rounded-lg font-bold transition-all ${
+              activeTab === 'sar'
+                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                : 'bg-gray-700/50 text-gray-300 hover:text-white border border-gray-600/50'
+            }`}
+          >
+            📋 SAR Reports
+          </button>
+          <button
+            onClick={() => setActiveTab('shap')}
+            className={`px-8 py-3 rounded-lg font-bold transition-all ${
+              activeTab === 'shap'
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
+                : 'bg-gray-700/50 text-gray-300 hover:text-white border border-gray-600/50'
+            }`}
+          >
+            🔬 SHAP Analysis
+          </button>
         </div>
 
-        {/* Validation Results */}
-        {validationResults && (
-          <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-blue-500/20">
-            <h3 className="text-xl font-semibold mb-4 text-blue-400">⚖️ Validation Results</h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {validationResults.map((check) => (
-                <div key={check.field} className={`rounded-lg p-3 text-center text-sm border ${check.ok ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-                  <div className="text-lg mb-1">{check.ok ? '✅' : '❌'}</div>
-                  {check.field}
+        {/* SAR Section */}
+        {activeTab === 'sar' && (
+          <>
+            {/* Controls + ML Results */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-8 mb-8">
+              {/* AI Analysis Panel */}
+              <div className="lg:col-span-1">
+                <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 border border-orange-500/20">
+                  <h3 className="text-xl font-semibold mb-4 text-orange-500">🤖 AI Analysis</h3>
+                  <div className="space-y-4">
+                    <button
+                      onClick={performAIAnalysis}
+                      disabled={analysisRunning}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+                    >
+                      {analysisRunning ? 'Analyzing...' : 'Start AI Analysis'}
+                    </button>
+                    <button
+                      onClick={generateSARReport}
+                      disabled={generating}
+                      className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {generating ? 'Generating...' : 'Generate SAR Report'}
+                    </button>
+                    <button
+                      onClick={validateReport}
+                      disabled={validating}
+                      className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {validating ? 'Validating...' : '⚖️ Validate Report'}
+                    </button>
+                    <button
+                      onClick={exportPDF}
+                      disabled={exporting}
+                      className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {exporting ? 'Exporting...' : '📄 Export PDF'}
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
 
-        {/* SAR Report */}
-        <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-orange-500/20">
-          <h3 className="text-xl font-semibold mb-4 text-orange-500"><Icon name="FileText" size={48} className="text-white" /> SAR Report</h3>
-          <div className="min-h-[400px]">
-            {sarReport ? <SARReportDisplay report={sarReport} /> : (
-              <div className="text-gray-400 text-center py-16">
-                SAR report will appear here after generation…
+              {/* ML Results */}
+              <div className="lg:col-span-3 xl:col-span-4">
+                <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-8 border border-orange-500/20">
+                  <h3 className="text-xl font-semibold mb-4 text-orange-500">🧠 ML Detection Results</h3>
+                  <div className="space-y-4">
+                    {analysisRunning && mlResults.length === 0 && (
+                      <div className="text-center py-8 animate-pulse text-gray-400">
+                        Running AI analysis on transaction data…
+                      </div>
+                    )}
+                    {!analysisRunning && mlResults.length === 0 && (
+                      <div className="text-gray-400 text-center py-8">
+                        Click "Start AI Analysis" to begin detection…
+                      </div>
+                    )}
+                    {mlResults.map((item) => (
+                      <MLResultCard key={item.label} {...item} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Validation Results */}
+            {validationResults && (
+              <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-blue-500/20">
+                <h3 className="text-xl font-semibold mb-4 text-blue-400">⚖️ Validation Results</h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {validationResults.map((check) => (
+                    <div key={check.field} className={`rounded-lg p-3 text-center text-sm border ${check.ok ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
+                      <div className="text-lg mb-1">{check.ok ? '✅' : '❌'}</div>
+                      {check.field}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Map */}
-        <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-orange-500/20">
-          <h3 className="text-xl font-semibold mb-4 text-orange-500">🗺️ Geographic Risk Assessment</h3>
-          <SARMapView />
-        </div>
+            {/* SAR Report */}
+            <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-orange-500/20">
+              <h3 className="text-xl font-semibold mb-4 text-orange-500">📄 SAR Report</h3>
+              <div className="min-h-[400px]">
+                {sarReport ? <SARReportDisplay report={sarReport} /> : (
+                  <div className="text-gray-400 text-center py-16">
+                    SAR report will appear here after generation…
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Map */}
+            <div className="bg-[#1a1a2e]/60 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-orange-500/20">
+              <h3 className="text-xl font-semibold mb-4 text-orange-500">🗺️ Geographic Risk Assessment</h3>
+              <SARMapView />
+            </div>
+          </>
+        )}
+
+        {/* SHAP Analysis Section */}
+        {activeTab === 'shap' && (
+          <SHAPExplainer />
+        )}
 
         {/* Navigation */}
         <div className="flex justify-between items-center">
