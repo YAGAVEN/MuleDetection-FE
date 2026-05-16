@@ -46,6 +46,11 @@ class TriNetraPDFGenerator {
             ['Time Period', sarData.details.time_period]
         ]);
 
+        // ==================== HIGH-RISK ACCOUNTS SECTION ====================
+        if (sarData.details.high_risk_accounts && sarData.details.high_risk_accounts.length > 0) {
+            this.addHighRiskAccountsSection(sarData);
+        }
+
         // Accounts Involved
         if (sarData.details.accounts_involved && sarData.details.accounts_involved.length > 0) {
             this.addListSection('Accounts Involved', sarData.details.accounts_involved);
@@ -59,6 +64,11 @@ class TriNetraPDFGenerator {
         // Pattern Indicators
         if (sarData.evidence.pattern_indicators && sarData.evidence.pattern_indicators.length > 0) {
             this.addListSection('Pattern Indicators', sarData.evidence.pattern_indicators);
+        }
+
+        // ML Model Insights
+        if (sarData.evidence.ml_model_insights && sarData.evidence.ml_model_insights.length > 0) {
+            this.addListSection('ML Model Insights', sarData.evidence.ml_model_insights);
         }
 
         // Recommendations
@@ -78,6 +88,140 @@ class TriNetraPDFGenerator {
 
         return this.doc;
     }
+
+    addHighRiskAccountsSection(sarData) {
+        this.checkPageBreak(50);
+
+        // Section title with background
+        this.doc.setFillColor(220, 53, 69); // Red background for high-risk
+        this.doc.rect(this.margin, this.currentY - 5, this.pageWidth - 2 * this.margin, 10, 'F');
+        
+        this.doc.setFontSize(14);
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setTextColor(255, 255, 255);
+        this.doc.text('HIGH-RISK ACCOUNTS REQUIRING IMMEDIATE ATTENTION', this.margin + 5, this.currentY + 3);
+        this.currentY += 15;
+
+        // Account Risk Summary
+        const accounts = sarData.details.high_risk_accounts;
+        const criticalCount = accounts.filter(a => a.risk_level === 'CRITICAL').length;
+        const highCount = accounts.filter(a => a.risk_level === 'HIGH').length;
+        const mediumCount = accounts.filter(a => a.risk_level === 'MEDIUM').length;
+
+        this.doc.setTextColor(0, 0, 0);
+        this.doc.setFontSize(10);
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.text(`Total High-Risk Accounts: ${accounts.length}`, this.margin + 5, this.currentY);
+        this.currentY += 6;
+
+        this.doc.setFontSize(9);
+        this.doc.setFont('helvetica', 'normal');
+        this.doc.setTextColor(220, 53, 69);
+        this.doc.text(`🔴 CRITICAL Risk: ${criticalCount} accounts`, this.margin + 10, this.currentY);
+        this.currentY += 5;
+        
+        this.doc.setTextColor(255, 165, 0);
+        this.doc.text(`🟠 HIGH Risk: ${highCount} accounts`, this.margin + 10, this.currentY);
+        this.currentY += 5;
+        
+        this.doc.setTextColor(255, 193, 7);
+        this.doc.text(`🟡 MEDIUM Risk: ${mediumCount} accounts`, this.margin + 10, this.currentY);
+        this.currentY += 10;
+
+        // Detailed Account Table - Use API scores directly
+        const accountTableData = accounts.map(account => {
+            const lgbmScore = account.lightgbm_score !== undefined ? (account.lightgbm_score * 100).toFixed(1) : 'N/A';
+            const gnnScore = account.gnn_score !== undefined ? (account.gnn_score * 100).toFixed(1) : 'N/A';
+            return [
+                account.account_id.substring(0, 15),
+                `${(account.risk_score * 100).toFixed(1)}%`,
+                account.risk_level,
+                `${lgbmScore}%`,
+                `${gnnScore}%`,
+                account.top_risk_factors?.[0]?.feature_name?.substring(0, 12) || 'N/A'
+            ];
+        });
+
+        this.doc.autoTable({
+            head: [['Account ID', 'Risk Score', 'Level', 'LGBM %', 'GNN %', 'Top Factor']],
+            body: accountTableData,
+            startY: this.currentY,
+            margin: { left: this.margin, right: this.margin },
+            styles: {
+                fontSize: 8,
+                cellPadding: 3,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: [70, 130, 180],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: [240, 248, 255]
+            },
+            bodyStyles: {
+                textColor: [0, 0, 0]
+            },
+            rowPageBreak: 'avoid'
+        });
+
+        this.currentY = this.doc.lastAutoTable.finalY + 10;
+
+        // Detailed Account Analysis
+        this.doc.setFontSize(12);
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.setTextColor(0, 100, 200);
+        this.doc.text('Detailed Account Risk Analysis', this.margin, this.currentY);
+        this.currentY += 8;
+
+        // Show top 3 critical accounts in detail with real model scores
+        const criticalAccounts = accounts.filter(a => a.risk_level === 'CRITICAL').slice(0, 3);
+        criticalAccounts.forEach((account, index) => {
+            this.checkPageBreak(25);
+
+            // Account header
+            this.doc.setFillColor(240, 240, 240);
+            this.doc.rect(this.margin, this.currentY - 3, this.pageWidth - 2 * this.margin, 8, 'F');
+            
+            this.doc.setFontSize(10);
+            this.doc.setFont('helvetica', 'bold');
+            this.doc.setTextColor(220, 53, 69);
+            this.doc.text(`[${index + 1}] Account: ${account.account_id}`, this.margin + 5, this.currentY + 2);
+            this.currentY += 8;
+
+            // Account details with ACTUAL model scores from endpoint
+            this.doc.setFontSize(9);
+            this.doc.setFont('helvetica', 'normal');
+            this.doc.setTextColor(0, 0, 0);
+            
+            // Get real model scores from the account data (direct from API)
+            const lgbmScore = account.lightgbm_score !== undefined ? (account.lightgbm_score * 100).toFixed(1) : 'N/A';
+            const gnnScore = account.gnn_score !== undefined ? (account.gnn_score * 100).toFixed(1) : 'N/A';
+            
+            const details = [
+                `Risk Score: ${(account.risk_score * 100).toFixed(1)}% (${account.risk_level})`,
+                `Model Scores: LightGBM ${lgbmScore}% | GNN ${gnnScore}%`,
+                `Summary: ${account.risk_summary?.substring(0, 90) || 'N/A'}...`,
+                `Top Risk Factor: ${account.top_risk_factors?.[0]?.feature_name || account.top_risk_factors?.[0]?.feature || 'N/A'}`
+            ];
+
+            details.forEach(detail => {
+                this.checkPageBreak(5);
+                const wrapped = this.doc.splitTextToSize(detail, this.pageWidth - 2 * this.margin - 10);
+                wrapped.forEach(line => {
+                    this.doc.text(line, this.margin + 10, this.currentY);
+                    this.currentY += 4;
+                });
+            });
+
+            this.currentY += 3;
+        });
+
+        this.currentY += 5;
+    }
+
+
 
     async generateChronosReport(timelineData, networkData, scenario) {
         this.doc = new jsPDF();
@@ -193,10 +337,6 @@ class TriNetraPDFGenerator {
         
         this.doc.setFontSize(12);
         this.doc.text('Making the invisible visible', this.margin + 5, this.margin + 18);
-        
-        // Report ID
-        this.doc.setTextColor(0, 255, 135);
-        this.doc.text(reportId, this.pageWidth - this.margin - 50, this.margin + 15);
         
         this.currentY = this.margin + 35;
         

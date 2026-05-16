@@ -12,6 +12,9 @@ from .api import (
     ingestion_routes,
     model_command_center_routes,
     pipeline_routes,
+    shap_routes,
+    chronos_routes,
+    analysis_routes,
 )
 
 # Setup logging
@@ -27,14 +30,24 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
-# Add CORS middleware
+# Add CORS middleware - Allow all frontend ports
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5177",
         "http://localhost:3000",
         "http://localhost:5001",
+        "http://localhost:8000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
+        "http://127.0.0.1:5177",
+        "http://127.0.0.1:8000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -65,9 +78,12 @@ async def shutdown_event():
 app.include_router(health_routes.router)
 app.include_router(ingestion_routes.router)
 app.include_router(pipeline_routes.router)
+app.include_router(shap_routes.router)
 app.include_router(dashboard_routes.router)
-app.include_router(model_command_center_routes.router)
 app.include_router(hydra_routes.router)
+app.include_router(chronos_routes.router)
+app.include_router(model_command_center_routes.router)
+app.include_router(analysis_routes.router)
 
 
 # Global exception handler
