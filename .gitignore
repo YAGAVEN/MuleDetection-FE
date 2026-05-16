@@ -10,6 +10,8 @@
 *.json
 *.json
 *.zip
+*.pdf
+*.png
 
 # ============================================================
 # PYTHON & VIRTUAL ENVIRONMENTS
@@ -83,14 +85,7 @@ backend/.venv/
 backend/logs/
 backend/ml_results/
 backend/.env
-
-# ============================================================
-# BACKEND GENERATED ARTIFACTS
-# ============================================================
-backend/.venv/
-backend/logs/
-backend/ml_results/
-backend/.env
+backend/temp-data/shap/*.html
 
 # ============================================================
 # KEEP THESE FOLDERS & FILES (explicitly included)

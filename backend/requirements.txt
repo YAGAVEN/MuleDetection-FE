@@ -16,3 +16,6 @@ httpx
 sqlalchemy
 shap
 reportlab
+matplotlib
+plotly
+Jinja2

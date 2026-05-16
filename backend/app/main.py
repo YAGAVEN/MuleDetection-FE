@@ -6,6 +6,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from .api import (
+    auto_sar_routes,
     dashboard_routes,
     health_routes,
     hydra_routes,
@@ -76,6 +77,7 @@ async def shutdown_event():
 
 # Include routers
 app.include_router(health_routes.router)
+app.include_router(auto_sar_routes.router)
 app.include_router(ingestion_routes.router)
 app.include_router(pipeline_routes.router)
 app.include_router(shap_routes.router)

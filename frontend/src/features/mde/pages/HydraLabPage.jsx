@@ -1,5 +1,6 @@
 import { Play, Square, Swords } from 'lucide-react'
 import HydraPanel from '../components/HydraPanel'
+import HydraLogsPanel from '../components/HydraLogsPanel'
 import SystemStatusPanel from '../components/SystemStatusPanel'
 import PageTitle from '../components/PageTitle'
 import { useMDEStore } from '../store/useMDEStore'
@@ -41,8 +42,9 @@ export default function HydraLabPage() {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="space-y-4">
         <HydraPanel />
+        <HydraLogsPanel />
         <SystemStatusPanel />
       </div>
     </section>

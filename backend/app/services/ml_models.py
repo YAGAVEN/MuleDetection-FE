@@ -74,6 +74,8 @@ def _initialize_runtime_models() -> None:
         (GNN_RUNTIME_PKL, gnn_payload),
         (ENSEMBLE_RUNTIME_PKL, ensemble_payload),
     ):
+        if artifact_path.exists():
+            continue
         try:
             with open(artifact_path, "wb") as artifact_file:
                 pickle.dump(payload, artifact_file)

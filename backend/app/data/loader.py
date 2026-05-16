@@ -109,7 +109,13 @@ def load_account_features(filepath: str = None) -> pd.DataFrame:
         RuntimeError: If loading fails
     """
     if filepath is None:
-        filepath = os.path.join(DATA_DIR, "account_features.csv")
+        candidates = [
+            os.path.join("backend", "temp-data", "engineered_features.csv"),
+            os.path.join("backend", "temp-data", "features_combined.csv"),
+            os.path.join(DATA_DIR, "account_features.csv"),
+            os.path.join("account_features.csv"),
+        ]
+        filepath = next((candidate for candidate in candidates if os.path.exists(candidate)), candidates[0])
     
     # If relative path, try from current directory first, then from parent
     if not os.path.isabs(filepath):

@@ -208,6 +208,8 @@ class ModelCommandCenterService:
     def update_hydra_status(self, hydra_status: Dict[str, Any]) -> Dict[str, Any]:
         with self._lock:
             payload = self.ensure_initialized()
+            if hydra_status.get("current_model_version"):
+                payload["current_model_version"] = str(hydra_status["current_model_version"])
             payload["training_status"] = hydra_status.get("training_status", payload.get("training_status"))
             payload["attacker_score"] = round(float(hydra_status.get("attacker_score", payload.get("attacker_score", 0))), 2)
             payload["defender_score"] = round(float(hydra_status.get("defender_score", payload.get("defender_score", 0))), 2)
@@ -219,6 +221,28 @@ class ModelCommandCenterService:
                 hydra_status.get("synthetic_patterns_generated", payload.get("synthetic_patterns_generated", 0))
             )
             payload["detected_patterns"] = int(hydra_status.get("detected_patterns", payload.get("detected_patterns", 0)))
+            versions = payload.setdefault("model_versions", {})
+            if hydra_status.get("current_model_version"):
+                versions["ensemble"] = str(hydra_status["current_model_version"])
+            if hydra_status.get("gnn_model_version"):
+                versions["gnn"] = str(hydra_status["gnn_model_version"])
+            metrics = payload.setdefault("metrics", {})
+            model_accuracy = hydra_status.get("model_accuracy")
+            if model_accuracy is not None:
+                metrics["accuracy"] = round(float(model_accuracy), 6)
+            detection_rate = hydra_status.get("detection_rate")
+            if detection_rate is not None:
+                metrics["recall"] = round(float(detection_rate), 6)
+            attack_success_rate = hydra_status.get("attack_success_rate")
+            if attack_success_rate is not None:
+                metrics["attack_success_rate"] = round(float(attack_success_rate), 6)
+            adversarial_accuracy = hydra_status.get("adversarial_accuracy")
+            if adversarial_accuracy is not None:
+                metrics["adversarial_accuracy"] = round(float(adversarial_accuracy), 6)
+            metrics["samples_generated"] = max(
+                int(metrics.get("samples_generated", 0) or 0),
+                int(payload.get("synthetic_patterns_generated", 0) or 0),
+            )
             payload["generated_at"] = self._now()
             return self._write(payload)
 
