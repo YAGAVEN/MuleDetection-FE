@@ -139,6 +139,7 @@ def parse_timestamp_column(df: pd.DataFrame) -> pd.DataFrame:
 
 @router.get("/timeline")
 async def get_timeline(
+    scenario: Optional[str] = Query("all", description="Data scenario filter: 'all', 'high-risk', 'flagged', 'normal'"),
     account_id: Optional[str] = Query(None, description="Filter by specific account_id"),
     channel: Optional[str] = Query(None, description="Filter by channel (ATW, NTD, CHQ, FTD, UPI_CREDIT, etc)"),
     time_quantum: str = Query("1m", description="Time quantum for aggregation (1m, 5m, 1h, 1d)"),
@@ -147,6 +148,7 @@ async def get_timeline(
     Get timeline of transactions with layering analysis.
     
     Args:
+        scenario: Data scenario filter - 'all' (default), 'high-risk', 'flagged', 'normal'
         account_id: Filter transactions by account_id (optional)
         channel: Filter transactions by channel (optional)
         time_quantum: Time quantum for analysis (1m, 5m, 1h, 1d)
@@ -171,6 +173,25 @@ async def get_timeline(
                 "time_quantum": time_quantum,
                 "message": "No transactions found",
             }
+        
+        # Apply scenario filter
+        scenario_filters = []
+        if scenario and scenario != "all":
+            if scenario == "high-risk":
+                # Filter for high-risk transactions
+                if "risk_score" in df.columns:
+                    df = df[df["risk_score"] > 0.7]
+                    scenario_filters.append("high-risk (risk_score > 0.7)")
+            elif scenario == "flagged":
+                # Filter for flagged transactions
+                if "is_flagged" in df.columns:
+                    df = df[df["is_flagged"] == 1]
+                    scenario_filters.append("flagged transactions")
+            elif scenario == "normal":
+                # Filter for normal transactions (low risk)
+                if "risk_score" in df.columns:
+                    df = df[df["risk_score"] <= 0.3]
+                    scenario_filters.append("normal transactions")
         
         # Filter by account_id if provided
         if account_id:
@@ -245,6 +266,8 @@ async def get_timeline(
                     record[key] = value.isoformat()
         
         filters_applied = []
+        if scenario and scenario != "all":
+            filters_applied.append(f"scenario={scenario}")
         if account_id:
             filters_applied.append(f"account_id={account_id}")
         if channel:

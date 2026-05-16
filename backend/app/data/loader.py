@@ -43,8 +43,8 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
     """
     Load transactions CSV file with caching.
 
-    Behavior: when no filepath is provided, prefer backend/data/master.csv.
-    Falls back to backend/data/transactions.csv otherwise.
+    Behavior: when no filepath is provided, prefer Mule-data/master.csv.
+    Falls back to Mule-data/transactions_full.csv otherwise.
 
     Args:
         filepath: Path to transactions CSV file (defaults to DATA_DIR/transactions.csv)
@@ -58,8 +58,10 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
         RuntimeError: If loading fails
     """
     if filepath is None:
-        # Prefer the backend-owned master dataset.
+        # Prefer the Mule-data directory where actual data files are stored.
         candidates = [
+            os.path.join("Mule-data", "master.csv"),
+            os.path.join("Mule-data", "transactions_full.csv"),
             os.path.join("backend", "data", "master.csv"),
             os.path.join("backend", "data", "transactions.csv"),
             os.path.join("transactions.csv"),
@@ -109,7 +111,22 @@ def load_account_features(filepath: str = None) -> pd.DataFrame:
         RuntimeError: If loading fails
     """
     if filepath is None:
-        filepath = os.path.join(DATA_DIR, "account_features.csv")
+        # Prefer Mule-data directory for features
+        candidates = [
+            os.path.join("Mule-data", "features.csv"),
+            os.path.join("backend", "data", "account_features.csv"),
+            os.path.join("backend", "data", "features.csv"),
+        ]
+        found = None
+        for cand in candidates:
+            if os.path.exists(cand):
+                found = cand
+                break
+        if found:
+            filepath = found
+        else:
+            # Fallback to DATA_DIR default
+            filepath = os.path.join(DATA_DIR, "account_features.csv")
     
     # If relative path, try from current directory first, then from parent
     if not os.path.isabs(filepath):

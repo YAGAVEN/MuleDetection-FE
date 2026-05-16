@@ -1,8 +1,67 @@
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import ReactFlow, { MiniMap, Controls, Background } from 'reactflow'
+import 'reactflow/dist/style.css'
+
 import ChronosPreviewPanel from '../components/ChronosPreviewPanel'
 import NetworkGraphPreview from '../components/NetworkGraphPreview'
 import PageTitle from '../components/PageTitle'
+import GlassCard from '../components/GlassCard'
 
 export default function ChronosEnginePage() {
+  const navigate = useNavigate()
+  const [selectedAccountId, setSelectedAccountId] = useState(null)
+  const [sortField, setSortField] = useState('ensembleScore')
+  const [sortOrder, setSortOrder] = useState('desc')
+  const [query, setQuery] = useState('')
+  const [accountData, setAccountData] = useState([])
+  const [networkData, setNetworkData] = useState({ nodes: [], edges: [] })
+
+  // Load mock data
+  useEffect(() => {
+    // Sample account data for demonstration
+    const mockAccounts = [
+      { accountId: 'ACC001', ensembleScore: 0.92, riskLevel: 'CRITICAL', lgbmScore: 0.95, gnnScore: 0.89, signals: ['High Velocity', 'Unusual Channel'], caseId: 'CASE-001' },
+      { accountId: 'ACC002', ensembleScore: 0.78, riskLevel: 'HIGH', lgbmScore: 0.80, gnnScore: 0.76, signals: ['Round Trip', 'Multiple Channels'], caseId: 'CASE-002' },
+      { accountId: 'ACC003', ensembleScore: 0.65, riskLevel: 'MEDIUM', lgbmScore: 0.68, gnnScore: 0.62, signals: ['Pattern Match'], caseId: 'CASE-003' },
+      { accountId: 'ACC004', ensembleScore: 0.88, riskLevel: 'CRITICAL', lgbmScore: 0.85, gnnScore: 0.91, signals: ['Layering Detected', 'Cross Border'], caseId: 'CASE-004' },
+      { accountId: 'ACC005', ensembleScore: 0.72, riskLevel: 'HIGH', lgbmScore: 0.70, gnnScore: 0.74, signals: ['Structuring'], caseId: 'CASE-005' },
+    ]
+    setAccountData(mockAccounts)
+
+    // Sample network data
+    setNetworkData({
+      nodes: [
+        { id: 'ACC001', label: 'ACC001', position: { x: 0, y: 0 } },
+        { id: 'ACC002', label: 'ACC002', position: { x: 100, y: 100 } },
+        { id: 'ACC003', label: 'ACC003', position: { x: -100, y: 100 } },
+      ],
+      edges: [
+        { id: 'e1-2', source: 'ACC001', target: 'ACC002' },
+        { id: 'e1-3', source: 'ACC001', target: 'ACC003' },
+      ],
+    })
+  }, [])
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('desc')
+    }
+  }
+
+  const sortedRows = useMemo(() => {
+    const sorted = [...accountData].sort((a, b) => {
+      const aVal = a[sortField]
+      const bVal = b[sortField]
+      const comparison = aVal > bVal ? 1 : -1
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+    return sorted
+  }, [accountData, sortField, sortOrder])
+
   return (
     <section className="space-y-4 pb-4">
       <PageTitle
