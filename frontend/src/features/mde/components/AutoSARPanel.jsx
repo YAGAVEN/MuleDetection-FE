@@ -1,59 +1,62 @@
 import { FileCheck2, FileOutput, ShieldAlert, RefreshCw } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import GlassCard from './GlassCard'
 import { useMDEStore } from '../store/useMDEStore'
 import TriNetraPDFGenerator from '../../../services/pdf-generator'
+import api from '../../../services/api'
 
 export default function AutoSARPanel() {
-  const queue = useMDEStore((s) => s.sarQueue)
+  const cases = useMDEStore((s) => s.cases)
+  const predictionSummary = useMDEStore((s) => s.predictionSummary)
+  const queue = useMemo(() => {
+    if (cases.length) {
+      return cases.slice(0, 3).map((item, index) => ({
+        id: `SAR-${8821 - index}`,
+        caseId: item.id,
+        status: index === 0 ? 'Generating' : index === 1 ? 'Compliance Check' : 'Ready to Export',
+        progress: index === 0 ? 72 : index === 1 ? 95 : 100,
+        analyst: item.investigator || 'Auto-assigned',
+      }))
+    }
+    return []
+  }, [cases])
   const [isGenerating, setIsGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [highRiskAccounts, setHighRiskAccounts] = useState([])
 
-  // Fetch high-risk accounts on component mount and when queue changes
+  const queueSignature = queue.map((item) => item.caseId || item.id).join('|')
+
   useEffect(() => {
     const fetchHighRiskAccounts = async () => {
       try {
-        console.log('🔍 Fetching fresh high-risk accounts from API...')
-        const response = await fetch('http://127.0.0.1:8000/api/shap/high-risk-accounts?limit=10')
-        
+        const response = await fetch(`${api.baseURL}/shap/high-risk-accounts?limit=10`)
+
         if (!response.ok) {
           throw new Error(`API Error: ${response.status} ${response.statusText}`)
         }
-        
+
         const data = await response.json()
-        console.log('✅ API Response:', data)
-        
+
         if (data.status === 'error') {
-          console.error('❌ API returned error:', data.error)
           setHighRiskAccounts([])
           return
         }
-        
+
         const accounts = data.high_risk_accounts || []
-        console.log(`📊 Retrieved ${accounts.length} high-risk accounts`)
-        
-        if (accounts.length === 0) {
-          console.warn('⚠️ No high-risk accounts returned. Message:', data.message)
-        }
-        
         setHighRiskAccounts(accounts)
       } catch (error) {
-        console.error('❌ Error fetching high-risk accounts:', error)
-        console.error('Full error:', error.message)
         setHighRiskAccounts([])
       }
     }
-    
+
     fetchHighRiskAccounts()
-  }, [queue.length])
+  }, [queueSignature, predictionSummary?.generated_at])
 
   const refreshData = async () => {
     setIsRefreshing(true)
     try {
-      console.log('🔄 Refreshing newly ingested data...')
-      const response = await fetch('http://127.0.0.1:8000/api/shap/high-risk-accounts?limit=10')
+      const response = await fetch(`${api.baseURL}/shap/high-risk-accounts?limit=10`)
       
       if (!response.ok) {
         throw new Error(`API Error: ${response.status}`)
@@ -63,10 +66,8 @@ export default function AutoSARPanel() {
       const accounts = data.high_risk_accounts || []
       
       setHighRiskAccounts(accounts)
-      console.log(`✅ Refreshed! Now showing ${accounts.length} high-risk accounts`)
       alert(`✅ Data refreshed! Now showing ${accounts.length} high-risk accounts with newly ingested data.`)
     } catch (error) {
-      console.error('❌ Error refreshing data:', error)
       alert('❌ Failed to refresh: ' + error.message)
     } finally {
       setIsRefreshing(false)

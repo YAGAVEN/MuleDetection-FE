@@ -30,6 +30,9 @@ export default function App() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
+        <Route path="/chronos" element={<Navigate to="/mde/chronos" replace />} />
+        <Route path="/autosar" element={<Navigate to="/mde/autosar" replace />} />
+        <Route path="/hydra" element={<Navigate to="/mde/hydra" replace />} />
         <Route path="/mule" element={<Navigate to="/mde/dashboard" replace />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />

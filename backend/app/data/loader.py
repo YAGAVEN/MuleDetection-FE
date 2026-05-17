@@ -43,8 +43,8 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
     """
     Load transactions CSV file with caching.
 
-    Behavior: when no filepath is provided, prefer backend/data/master.csv.
-    Falls back to backend/data/transactions.csv otherwise.
+    Behavior: when no filepath is provided, prefer uploaded transaction data.
+    Falls back to bundled Mule-data transaction exports otherwise.
 
     Args:
         filepath: Path to transactions CSV file (defaults to DATA_DIR/transactions.csv)
@@ -58,10 +58,13 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
         RuntimeError: If loading fails
     """
     if filepath is None:
-        # Prefer the backend-owned master dataset.
+        # Prefer the uploaded/runtime transaction files used by Chronos.
         candidates = [
-            os.path.join("backend", "data", "master.csv"),
+            os.path.join("backend", "temp-data", "transactions_full.csv"),
+            os.path.join("Mule-data", "transactions_full.csv"),
             os.path.join("backend", "data", "transactions.csv"),
+            os.path.join("backend", "data", "master.csv"),
+            os.path.join("Mule-data", "master.csv"),
             os.path.join("transactions.csv"),
         ]
         found = None
@@ -112,7 +115,9 @@ def load_account_features(filepath: str = None) -> pd.DataFrame:
         candidates = [
             os.path.join("backend", "temp-data", "engineered_features.csv"),
             os.path.join("backend", "temp-data", "features_combined.csv"),
+            os.path.join("Mule-data", "features.csv"),
             os.path.join(DATA_DIR, "account_features.csv"),
+            os.path.join("backend", "data", "features.csv"),
             os.path.join("account_features.csv"),
         ]
         filepath = next((candidate for candidate in candidates if os.path.exists(candidate)), candidates[0])

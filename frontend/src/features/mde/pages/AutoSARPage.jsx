@@ -3,6 +3,7 @@ import { ArrowDownToLine, FileChartColumnIncreasing, ShieldCheck, Bot, CircleAle
 import api from '../../../services/api'
 import PageTitle from '../components/PageTitle'
 import GlassCard from '../components/GlassCard'
+import { useMDEStore } from '../store/useMDEStore'
 
 const statusTone = {
   idle: 'text-slate-300 bg-slate-500/10 border-slate-300/20',
@@ -14,21 +15,13 @@ const statusTone = {
 const reportLabel = {
   individual_account: 'Individual Account Report',
   full_investigation: 'Complete Investigation Report',
+  all_cases: 'All Cases Report',
   hydra_training: 'HYDRA Training Report',
 }
 
-const normalizeCase = (item) => ({
-  id: item.id ?? item.case_id ?? item.caseId,
-  accountId: item.account_id ?? item.entities?.[0] ?? item.entities?.[0]?.account_id ?? item.id ?? item.case_id,
-  riskScore: item.riskScore ?? item.risk_score ?? 0,
-  riskLevel: item.riskLevel ?? item.risk_level ?? 'Medium',
-  pattern: item.pattern ?? item.pattern_type ?? 'Unknown',
-  accounts: item.accounts ?? item.account_count ?? 0,
-  investigator: item.investigator ?? item.assigned_to ?? 'Auto-assigned',
-})
-
 export default function AutoSARPage() {
-  const [cases, setCases] = useState([])
+  const cases = useMDEStore((s) => s.cases)
+  const refreshRuntimeData = useMDEStore((s) => s.refreshRuntimeData)
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [reports, setReports] = useState([])
   const [status, setStatus] = useState({ state: 'idle', message: 'Select an account and generate a report.' })
@@ -37,28 +30,17 @@ export default function AutoSARPage() {
     () => cases.find((item) => item.id === selectedAccountId) || cases[0] || null,
     [cases, selectedAccountId],
   )
+  const selectedAccount = selectedCase?.account_id || selectedCase?.accountId || selectedCase?.entities?.[0] || ''
 
   useEffect(() => {
-    let active = true
+    refreshRuntimeData()
+  }, [refreshRuntimeData])
 
-    api.getAutoSarCases()
-      .then((response) => {
-        if (!active) return
-        const nextCases = Array.isArray(response?.cases) ? response.cases.map(normalizeCase) : []
-        setCases(nextCases)
-        if (nextCases.length) {
-          setSelectedAccountId(nextCases[0].id)
-        }
-      })
-      .catch((error) => {
-        if (!active) return
-        setStatus({ state: 'failed', message: error.message || 'Unable to load suspicious accounts.' })
-      })
-
-    return () => {
-      active = false
+  useEffect(() => {
+    if (cases.length && (!selectedAccountId || !cases.some((item) => item.id === selectedAccountId))) {
+      setSelectedAccountId(cases[0].id)
     }
-  }, [])
+  }, [cases, selectedAccountId])
 
   const addReport = (report) => {
     const normalized = {
@@ -98,7 +80,7 @@ export default function AutoSARPage() {
     <section className="space-y-4">
       <PageTitle
         title="Auto-SAR Reports"
-        subtitle="Generate individual account, full investigation, and HYDRA training PDFs."
+        subtitle="Generate individual account, all cases, full investigation, and HYDRA training PDFs."
       />
 
       <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
@@ -151,10 +133,10 @@ export default function AutoSARPage() {
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <button
                 type="button"
-                disabled={!selectedCase?.accountId}
+                disabled={!selectedAccount}
                 onClick={() => runReport(
-                  () => api.generateAutoSarAccountReport(selectedCase.accountId),
-                  `Generating report for ${selectedCase.accountId}`,
+                  () => api.generateAutoSarAccountReport(selectedAccount),
+                  `Generating report for ${selectedAccount}`,
                 )}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-300/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -185,16 +167,28 @@ export default function AutoSARPage() {
                 <Bot size={16} />
                 HYDRA Report
               </button>
+
+              <button
+                type="button"
+                onClick={() => runReport(
+                  () => api.generateAutoSarAllCasesReport(),
+                  'Generating all cases report',
+                )}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-100 md:col-span-3"
+              >
+                <ArrowDownToLine size={16} />
+                All Cases Report
+              </button>
             </div>
 
             {selectedCase ? (
               <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-                <div className="font-medium text-white">Selected Account</div>
-                <div className="mt-1 text-xs text-slate-400">
-                  {selectedCase.accountId} · Risk {selectedCase.riskScore} · {selectedCase.riskLevel}
+                  <div className="font-medium text-white">Selected Account</div>
+                  <div className="mt-1 text-xs text-slate-400">
+                  {selectedAccount} · Risk {selectedCase.riskScore} · {selectedCase.riskLevel}
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
           </GlassCard>
 
           <GlassCard className="p-5">

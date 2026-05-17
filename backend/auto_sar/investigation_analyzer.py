@@ -73,8 +73,53 @@ class InvestigationAnalyzer:
         for candidate in ("cases.json", "investigation_cases.json"):
             payload = self._load_json(candidate)
             if payload:
-                return _as_records(payload)
-        return []
+                records = _as_records(payload)
+                if records:
+                    return records
+        return self._build_cases_from_risk_scores()
+
+    def _build_cases_from_risk_scores(self) -> List[Dict[str, Any]]:
+        scores = self.risk_scores.get("scores") if isinstance(self.risk_scores, dict) else self.risk_scores
+        if not isinstance(scores, list):
+            return []
+
+        def score_value(item: Dict[str, Any]) -> float:
+            try:
+                return float(item.get("ensemble_score", item.get("risk_score", item.get("score", 0))))
+            except (TypeError, ValueError):
+                return 0.0
+
+        ranked = sorted(
+            [item for item in scores if isinstance(item, dict)],
+            key=score_value,
+            reverse=True,
+        )[:20]
+        cases: List[Dict[str, Any]] = []
+        for index, item in enumerate(ranked):
+            score = score_value(item)
+            account_id = str(item.get("account_id", f"ACC-{index + 1:04d}"))
+            risk_level = str(item.get("risk_level", item.get("level", "LOW"))).upper().title()
+            cases.append(
+                {
+                    "id": f"MDE-{24000 + index + 1}",
+                    "case_id": f"MDE-{24000 + index + 1}",
+                    "account_id": account_id,
+                    "riskScore": int(round(score * 100)),
+                    "risk_score": score,
+                    "riskLevel": risk_level,
+                    "risk_level": risk_level.upper(),
+                    "pattern": "Uploaded data risk scoring",
+                    "accounts": 1,
+                    "amount": "N/A",
+                    "timeline": "Uploaded window",
+                    "status": "Open",
+                    "investigator": "Auto-assigned",
+                    "assigned_to": "Auto-assigned",
+                    "alerts": 1,
+                    "entities": [account_id],
+                }
+            )
+        return cases
 
     def _load_model_center(self) -> Dict[str, Any]:
         payload = _load_json(BACKEND_ROOT / "model-center" / "model_commander_center.json")
@@ -267,6 +312,7 @@ class InvestigationAnalyzer:
         report = {
             "title": f"ACCOUNT-{account_id} SAR",
             "subtitle": "Confidential AML Investigation Dossier",
+            "report_scope": "individual_account",
             "risk_level": str(prediction.get("risk_level") or risk.get("risk_level") or "HIGH"),
             "account_id": account_id,
             "case_id": None,
@@ -298,7 +344,7 @@ class InvestigationAnalyzer:
             "money_flow_analysis": self._money_flow_analysis(account_id),
             "graph_clusters": self._graph_clusters(related),
             "suspicious_chains": self._suspicious_chains(account_id),
-            "sections": self._individual_sections(account_id, shap, txns, related),
+            "sections": self._individual_sections(account_id, row, prediction, risk, shap, txns, related),
             "appendix": {
                 "prediction_row": prediction,
                 "risk_row": risk,
@@ -307,12 +353,49 @@ class InvestigationAnalyzer:
         }
         return report
 
-    def _individual_sections(self, account_id: str, shap: Dict[str, Any], txns: pd.DataFrame, related: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _individual_sections(
+        self,
+        account_id: str,
+        row: Dict[str, Any],
+        prediction: Dict[str, Any],
+        risk: Dict[str, Any],
+        shap: Dict[str, Any],
+        txns: pd.DataFrame,
+        related: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        account_profile = {
+            "account_id": account_id,
+            "customer_id": row.get("customer_id"),
+            "account_status": row.get("account_status"),
+            "product_family": row.get("product_family"),
+            "is_mule": row.get("is_mule"),
+            "is_frozen": row.get("is_frozen"),
+            "kyc_compliant": row.get("kyc_compliant"),
+            "rural_branch": row.get("rural_branch"),
+        }
+        risk_snapshot = {
+            "ensemble_score": prediction.get("ensemble_score"),
+            "lightgbm_score": prediction.get("lightgbm_score") or prediction.get("lgbm_score"),
+            "gnn_score": prediction.get("gnn_score"),
+            "risk_level": prediction.get("risk_level") or risk.get("risk_level"),
+            "risk_percentile": prediction.get("risk_percentile"),
+        }
+        top_related = related[:10]
+        top_features = shap["ensemble_explanation"]["top_contributing_features"][:10]
         return [
+            {
+                "title": "Account Profile",
+                "table": [account_profile],
+            },
+            {
+                "title": "Risk Snapshot",
+                "table": [risk_snapshot],
+            },
             {
                 "title": "Executive Summary",
                 "body": [
-                    f"Account {account_id} shows an ensemble risk profile of {shap['ensemble_explanation']['prediction_score']:.2f}.",
+                    f"Account {account_id} is the single entity under review in this report.",
+                    f"Ensemble risk score: {shap['ensemble_explanation']['prediction_score']:.2f}.",
                     f"Top behavioral signal: {shap['ensemble_explanation']['top_contributing_features'][0]['feature_name'] if shap['ensemble_explanation']['top_contributing_features'] else 'N/A'}.",
                 ],
             },
@@ -322,11 +405,15 @@ class InvestigationAnalyzer:
             },
             {
                 "title": "Related Accounts",
-                "table": related[:15],
+                "table": top_related,
+            },
+            {
+                "title": "Behavioral Anomalies",
+                "body": self._behavioral_anomalies(account_id),
             },
             {
                 "title": "SHAP Explainability",
-                "table": shap["ensemble_explanation"]["top_contributing_features"][:10],
+                "table": top_features,
                 "charts": shap.get("chart_paths", {}),
             },
         ]
@@ -385,6 +472,7 @@ class InvestigationAnalyzer:
         report = {
             "title": f"{case_id}_FULL_REPORT",
             "subtitle": "Confidential AML Investigation Dossier",
+            "report_scope": "full_investigation",
             "risk_level": case.get("riskLevel") or case.get("risk_level") or "HIGH",
             "account_id": accounts[0] if accounts else None,
             "case_id": case_id,
@@ -419,9 +507,27 @@ class InvestigationAnalyzer:
             ],
             "final_recommendation": "File SAR and escalate for manual compliance review.",
             "sections": [
-                {"title": "Executive Summary", "body": [case.get("pattern", "Investigation case generated from model intelligence.")]},
-                {"title": "Investigation Overview", "body": [json.dumps(case, indent=2, default=str)]},
-                {"title": "Transaction Intelligence", "table": all_transactions[:15]},
+                {
+                    "title": "Executive Summary",
+                    "body": [
+                        f"Case {case_id} spans {len(accounts)} suspicious accounts.",
+                        case.get("pattern", "Investigation case generated from model intelligence."),
+                    ],
+                },
+                {
+                    "title": "Investigation Overview",
+                    "table": [
+                        {
+                            "case_id": case_id,
+                            "risk_level": case.get("riskLevel") or case.get("risk_level") or "HIGH",
+                            "account_count": len(accounts),
+                            "transactions_reviewed": len(all_transactions),
+                            "anomalies": len(set(all_anomalies)),
+                        }
+                    ],
+                },
+                {"title": "Case Details", "body": [json.dumps(case, indent=2, default=str)]},
+                {"title": "Transaction Intelligence", "table": all_transactions[:25]},
                 {"title": "Related Entities", "table": [{"entity": entity} for entity in accounts]},
                 {
                     "title": "Timeline Intelligence",
@@ -431,8 +537,75 @@ class InvestigationAnalyzer:
                         if account_report.get("timeline_summary")
                     ],
                 },
+                {"title": "Account Comparison", "table": suspicious_accounts},
+                {"title": "Consolidated SHAP Summary", "table": shap_summary},
             ],
             "appendix": {"account_reports": account_reports},
+        }
+        return report
+
+    def build_all_cases_report(
+        self,
+        investigator_name: str | None,
+        classification_level: str | None,
+    ) -> Dict[str, Any]:
+        cases = self.list_cases(limit=max(len(self.cases), 100))
+        all_cases = [
+            {
+                "case_id": case.get("id") or case.get("case_id"),
+                "account_id": case.get("account_id") or (case.get("entities") or [None])[0],
+                "risk_level": case.get("riskLevel") or case.get("risk_level") or "HIGH",
+                "risk_score": case.get("riskScore") or case.get("risk_score"),
+                "pattern": case.get("pattern"),
+                "accounts": case.get("accounts"),
+                "alerts": case.get("alerts"),
+                "investigator": case.get("investigator") or case.get("assigned_to"),
+            }
+            for case in cases
+        ]
+
+        risk_counts = Counter(str(item["risk_level"]).upper() for item in all_cases)
+        report = {
+            "title": "TRINETRA_ALL_CASES_REPORT",
+            "subtitle": "Confidential AML Investigation Dossier",
+            "report_scope": "all_cases",
+            "risk_level": "HIGH",
+            "account_id": None,
+            "case_id": None,
+            "investigator_name": investigator_name or "Auto-SAR Intelligence Engine",
+            "classification_level": classification_level or "Confidential",
+            "executive_summary": "Complete inventory of generated investigation cases with account and risk scoring.",
+            "investigation_overview": {
+                "case_count": len(all_cases),
+                "high_risk_cases": risk_counts.get("HIGH", 0),
+                "critical_cases": risk_counts.get("CRITICAL", 0),
+                "medium_cases": risk_counts.get("MEDIUM", 0),
+                "low_cases": risk_counts.get("LOW", 0),
+            },
+            "summary": {
+                "case_count": len(all_cases),
+                "critical_cases": risk_counts.get("CRITICAL", 0),
+                "high_cases": risk_counts.get("HIGH", 0),
+                "medium_cases": risk_counts.get("MEDIUM", 0),
+                "low_cases": risk_counts.get("LOW", 0),
+            },
+            "sections": [
+                {
+                    "title": "Executive Summary",
+                    "body": [
+                        f"{len(all_cases)} cases are included in this all-cases report.",
+                        "Each case is listed with its account, risk level, and risk score.",
+                    ],
+                },
+                {"title": "Case Inventory", "table": all_cases},
+                {
+                    "title": "Risk Distribution",
+                    "body": [f"{level}: {count}" for level, count in risk_counts.items()],
+                },
+            ],
+            "appendix": {
+                "case_inventory": all_cases,
+            },
         }
         return report
 

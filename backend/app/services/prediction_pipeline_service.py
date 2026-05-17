@@ -8,6 +8,17 @@ import numpy as np
 import pandas as pd
 
 from .ml_models import get_model_manager
+from .risk_thresholds import (
+    HIGH_UPTO_PCT_RANK,
+    LOW_UPTO_PCT_RANK,
+    MEDIUM_UPTO_PCT_RANK,
+    CRITICAL_ABOVE_PCT_RANK,
+    SUSPICIOUS_ABOVE_PCT_RANK,
+    is_critical_percentile,
+    is_suspicious_percentile,
+    risk_level_for_percentile,
+    RISK_THRESHOLD_BANDS,
+)
 from .storage_service import storage_service
 
 
@@ -45,12 +56,10 @@ class PredictionPipelineService:
                 "ensemble_score": ensemble_score.round(6),
             }
         )
-        predictions["risk_level"] = pd.cut(
-            predictions["ensemble_score"],
-            bins=[-0.01, 0.45, 0.7, 0.85, 1.01],
-            labels=["LOW", "MEDIUM", "HIGH", "CRITICAL"],
-        ).astype(str)
-        predictions["is_suspicious"] = (predictions["ensemble_score"] >= 0.7).astype(int)
+        predictions["risk_percentile"] = predictions["ensemble_score"].rank(pct=True, method="first")
+        predictions["risk_level"] = predictions["risk_percentile"].apply(risk_level_for_percentile)
+        predictions["is_suspicious"] = predictions["risk_percentile"].apply(is_suspicious_percentile).astype(int)
+        predictions["is_critical"] = predictions["risk_percentile"].apply(is_critical_percentile).astype(int)
 
         predictions_csv = self.temp_dir / "predictions.csv"
         predictions.to_csv(predictions_csv, index=False)
@@ -66,25 +75,21 @@ class PredictionPipelineService:
         suspicious = predictions[predictions["is_suspicious"] == 1].copy()
         suspicious_accounts = suspicious.to_dict(orient="records")
 
-        risk_scores = predictions[["account_id", "ensemble_score", "risk_level"]].to_dict(orient="records")
+        risk_scores = predictions[
+            ["account_id", "ensemble_score", "risk_percentile", "risk_level", "is_suspicious"]
+        ].to_dict(orient="records")
         alerts = self._build_alerts(suspicious)
         investigation_cases = self._build_investigation_cases(suspicious)
         summary = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "total_accounts_scored": int(len(predictions)),
             "suspicious_accounts_count": int(len(suspicious)),
-            "critical_count": int((predictions["risk_level"] == "CRITICAL").sum()),
+            "critical_count": int(predictions["is_critical"].sum()),
             "high_count": int((predictions["risk_level"] == "HIGH").sum()),
             "medium_count": int((predictions["risk_level"] == "MEDIUM").sum()),
             "low_count": int((predictions["risk_level"] == "LOW").sum()),
             "risk_bucket_strategy": "dynamic_percentile_rank",
-            "risk_thresholds": {
-                "low_upto_pct_rank": 0.3333,
-                "medium_upto_pct_rank": 0.6667,
-                "high_upto_pct_rank": 0.9,
-                "critical_above_pct_rank": 0.9,
-                "suspicious_above_pct_rank": 0.8,
-            },
+            "risk_thresholds": dict(RISK_THRESHOLD_BANDS),
             "parquet_written": parquet_written,
             "cases_ready": True,
         }
@@ -109,7 +114,7 @@ class PredictionPipelineService:
             cases.append(
                 {
                     "id": f"MDE-{24000 + index + 1}",
-                    "riskScore": int(round(score)),
+                    "riskScore": int(round(score * 100)),
                     "riskLevel": risk_level,
                     "pattern": "Anomalous transfer behavior",
                     "accounts": 1,

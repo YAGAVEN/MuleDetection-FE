@@ -464,6 +464,28 @@ class TriNetraPDFGenerator {
             alternateRowStyles: {
                 fillColor: [245, 245, 245]
             }
+            ,
+            didParseCell: (cellData) => {
+                if (cellData.section !== 'body') return;
+                const riskHeaderIndex = headers.findIndex((header) =>
+                    /risk\s*level|level/i.test(String(header))
+                );
+                const shouldHighlight = /suspicious|high-risk/i.test(title) || riskHeaderIndex >= 0;
+                if (!shouldHighlight) return;
+
+                const row = cellData.row.raw || [];
+                const riskValue = String(row[riskHeaderIndex >= 0 ? riskHeaderIndex : 2] || '').toUpperCase();
+                if (riskValue === 'CRITICAL') {
+                    cellData.cell.styles.fillColor = [127, 29, 29];
+                    cellData.cell.styles.textColor = [255, 255, 255];
+                } else if (riskValue === 'HIGH') {
+                    cellData.cell.styles.fillColor = [154, 52, 18];
+                    cellData.cell.styles.textColor = [255, 255, 255];
+                } else if (riskValue === 'MEDIUM') {
+                    cellData.cell.styles.fillColor = [113, 63, 18];
+                    cellData.cell.styles.textColor = [255, 255, 255];
+                }
+            }
         });
         
         this.currentY = this.doc.lastAutoTable.finalY + 10;

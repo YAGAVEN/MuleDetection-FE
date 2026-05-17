@@ -2,11 +2,11 @@
 FEATURE ENGINEERING SUMMARY
 ============================================================
 
-Total features: 80
-Total accounts: 100
-Labeled accounts: 100
-Mules: 56
-Legitimate: 44
+Total features: 90
+Total accounts: 102
+Labeled accounts: 102
+Mules: 68
+Legitimate: 34
 
 Feature columns:
     1. account_id
@@ -81,11 +81,21 @@ Feature columns:
    70. round_500_count
    71. round_1k_pct
    72. round_500_pct
-   73. ch_upi_count
-   74. ch_upi_pct
-   75. pct_within_6h
-   76. txn_per_day
-   77. monthly_cv
-   78. mean_passthrough_hours
-   79. mobile_spike_ratio
-   80. channel_entropy
+   73. ch_atw_count
+   74. ch_atw_pct
+   75. ch_chq_count
+   76. ch_chq_pct
+   77. ch_ntd_count
+   78. ch_ntd_pct
+   79. ch_upc_count
+   80. ch_upc_pct
+   81. ch_upd_count
+   82. ch_upd_pct
+   83. ch_upi_count
+   84. ch_upi_pct
+   85. pct_within_6h
+   86. txn_per_day
+   87. monthly_cv
+   88. mean_passthrough_hours
+   89. mobile_spike_ratio
+   90. channel_entropy

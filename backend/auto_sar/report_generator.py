@@ -6,6 +6,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+import math
 from typing import Any, Dict, Optional
 
 from .case_report_service import CaseReportService
@@ -24,18 +25,40 @@ def _slug(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in value.strip())
 
 
+def _sanitize(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _sanitize(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize(item) for item in value]
+    if isinstance(value, tuple):
+        return [_sanitize(item) for item in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if hasattr(value, "item") and not isinstance(value, (str, bytes)):
+        try:
+            return _sanitize(value.item())
+        except Exception:
+            return value
+    return value
+
+
 class AutoSARReportGenerator:
     def __init__(self) -> None:
+        self.pdf_builder = PDFBuilder()
+        self._refresh_context()
+
+    def _refresh_context(self) -> None:
         self.analyzer = InvestigationAnalyzer()
         self.case_service = CaseReportService(self.analyzer)
         self.model_service = ModelReportService(self.analyzer)
         self.hydra_service = HydraReportService(self.analyzer)
-        self.pdf_builder = PDFBuilder()
 
     def list_cases(self, limit: int = 100) -> list[dict[str, Any]]:
+        self._refresh_context()
         return self.case_service.list_cases(limit=limit)
 
     def get_case(self, case_id: str) -> dict[str, Any]:
+        self._refresh_context()
         return self.case_service.get_case(case_id)
 
     def get_report(self, report_id: str) -> dict[str, Any]:
@@ -49,6 +72,7 @@ class AutoSARReportGenerator:
         return record
 
     def generate(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        self._refresh_context()
         report_type = request["report_type"]
         report_id = request.get("report_id") or f"ASR-{uuid.uuid4().hex[:10].upper()}"
         start = time.perf_counter()
@@ -77,6 +101,11 @@ class AutoSARReportGenerator:
                 investigator_name=request.get("investigator_name"),
                 classification_level=request.get("classification_level"),
             )
+        elif report_type == "all_cases":
+            report = self.analyzer.build_all_cases_report(
+                investigator_name=request.get("investigator_name"),
+                classification_level=request.get("classification_level"),
+            )
         elif report_type == "prediction_model":
             report = self.model_service.build_report(
                 account_id=request.get("account_id"),
@@ -95,6 +124,7 @@ class AutoSARReportGenerator:
         report["generated_at"] = _utc_now()
         report["report_type"] = report_type
         report["duration_ms"] = round((time.perf_counter() - start) * 1000, 2)
+        report = _sanitize(report)
 
         pdf_name = report.get("output_filename") or f"{_slug(report.get('title', report_id))}.pdf"
         report["output_filename"] = pdf_name

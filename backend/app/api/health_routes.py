@@ -3,12 +3,11 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
 from ..schemas import HealthCheckResponse
-from ..database import get_db_service
+from ..database import SUPABASE_KEY, SUPABASE_SERVICE_KEY, SUPABASE_URL
 from ..services.ml_models import get_model_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Health"])
 
-db_service = get_db_service()
 model_manager = get_model_manager()
 
 
@@ -16,13 +15,9 @@ model_manager = get_model_manager()
 async def health_check():
     """Check API and database health"""
     try:
-        # Test database connection
-        db_connected = False
-        try:
-            result = db_service.get_all('accounts', limit=1)
-            db_connected = result.data is not None or result.data == []
-        except:
-            db_connected = False
+        # Keep health non-blocking. Endpoint calls should not hang the API on
+        # an external Supabase/network probe during local development.
+        db_connected = bool(SUPABASE_URL and (SUPABASE_SERVICE_KEY or SUPABASE_KEY))
 
         # Check models
         models_loaded = model_manager.models_loaded

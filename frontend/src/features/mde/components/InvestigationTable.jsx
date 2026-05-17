@@ -2,13 +2,7 @@ import { Fragment } from 'react'
 import { ChevronDown, ChevronUp, Download, Filter, Search, Clock, FileText, GitBranch } from 'lucide-react'
 import GlassCard from './GlassCard'
 import { useMDEStore } from '../store/useMDEStore'
-
-const riskGlow = {
-  Critical: 'shadow-[inset_0_0_0_1px_rgba(244,63,94,0.35)] bg-rose-500/5',
-  High: 'shadow-[inset_0_0_0_1px_rgba(249,115,22,0.35)] bg-orange-500/5',
-  Medium: 'shadow-[inset_0_0_0_1px_rgba(34,211,238,0.22)] bg-cyan-500/5',
-  Low: 'shadow-[inset_0_0_0_1px_rgba(148,163,184,0.24)] bg-slate-500/5',
-}
+import { RISK_LEVEL_STYLES } from '../constants/riskThresholds'
 
 export default function InvestigationTable() {
   const {
@@ -103,7 +97,7 @@ export default function InvestigationTable() {
               const expanded = expandedRows.includes(row.id)
               return (
                 <Fragment key={row.id}>
-                  <tr key={row.id} className={`border-b border-white/5 ${riskGlow[row.riskLevel]}`}>
+                  <tr key={row.id} className={`border-b border-white/5 ${RISK_LEVEL_STYLES[row.riskLevel]}`}>
                     <td className="py-3 pr-3 font-mono text-cyan-200">{row.id}</td>
                     <td className="py-3 pr-3 text-white font-semibold">{row.riskScore}</td>
                     <td className="py-3 pr-3">{row.riskLevel}</td>

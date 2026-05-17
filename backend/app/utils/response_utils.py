@@ -1,6 +1,8 @@
 """Response builders for ingestion APIs."""
 from __future__ import annotations
 
+import math
+from datetime import date, datetime
 from typing import Any, Dict, List
 
 
@@ -26,3 +28,22 @@ def ingestion_error_response(errors: List[Dict[str, str]]) -> Dict[str, Any]:
         "message": "Validation failed",
         "errors": errors,
     }
+
+
+def sanitize_json_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: sanitize_json_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [sanitize_json_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [sanitize_json_value(item) for item in value]
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if hasattr(value, "item") and not isinstance(value, (str, bytes)):
+        try:
+            return sanitize_json_value(value.item())
+        except Exception:
+            return value
+    return value

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 from typing import Any, Dict, Iterable, List
 
 from reportlab.lib import colors
@@ -104,6 +105,7 @@ class PDFBuilder:
         cover_rows = [
             ["Case / Account", report.get("case_id") or report.get("account_id") or "GLOBAL"],
             ["Risk Level", report.get("risk_level", "INFO")],
+            ["Report Scope", report.get("report_scope", report.get("report_type", "auto-sar"))],
             ["Timestamp", report.get("generated_at", "N/A")],
             ["Investigator", report.get("investigator_name", "Auto-SAR Intelligence Engine")],
             ["Classification", report.get("classification_level", "Confidential")],
@@ -136,6 +138,7 @@ class PDFBuilder:
             if rows:
                 t = Table(rows, repeatRows=1)
                 t.setStyle(self._table_style())
+                t.setStyle(self._risk_table_style(table, rows))
                 elements.append(t)
         charts = section.get("charts")
         if isinstance(charts, dict):
@@ -151,8 +154,10 @@ class PDFBuilder:
         elements.append(Spacer(1, 0.2 * inch))
         elements.append(Paragraph("Appendix", styles["AutoSARAppendixTitle"]))
         if isinstance(appendix, dict):
-            appendix_table = Table([[k, self._stringify(v)] for k, v in list(appendix.items())[:10]], colWidths=[2.1 * inch, 3.9 * inch])
+            appendix_rows = [[k, self._stringify(v)] for k, v in list(appendix.items())[:10]]
+            appendix_table = Table(appendix_rows, colWidths=[2.1 * inch, 3.9 * inch])
             appendix_table.setStyle(self._table_style())
+            appendix_table.setStyle(self._risk_table_style(appendix, appendix_rows))
             elements.append(appendix_table)
 
     def _image(self, path: Any) -> Any:
@@ -192,9 +197,66 @@ class PDFBuilder:
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ])
 
+    def _risk_table_style(self, source: Any, rows: List[List[str]]) -> TableStyle:
+        commands: List[tuple[Any, ...]] = []
+
+        if isinstance(source, list) and source and isinstance(source[0], dict):
+            for index, row in enumerate(source[:20], start=1):
+                level = str(row.get("risk_level") or row.get("riskLevel") or row.get("level") or "").upper()
+                if level == "CRITICAL":
+                    commands.extend([
+                        ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#7f1d1d")),
+                        ("TEXTCOLOR", (0, index), (-1, index), colors.white),
+                    ])
+                elif level == "HIGH":
+                    commands.extend([
+                        ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#9a3412")),
+                        ("TEXTCOLOR", (0, index), (-1, index), colors.white),
+                    ])
+                elif level == "MEDIUM":
+                    commands.extend([
+                        ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#713f12")),
+                        ("TEXTCOLOR", (0, index), (-1, index), colors.white),
+                    ])
+        elif rows and len(rows[0]) >= 3:
+            level_index = None
+            if isinstance(rows[0][0], str):
+                header_row = [str(cell).lower() for cell in rows[0]]
+                for candidate in ("risk level", "level"):
+                    if candidate in header_row:
+                        level_index = header_row.index(candidate)
+                        break
+            if level_index is not None:
+                for index, row in enumerate(rows[1:21], start=1):
+                    level = str(row[level_index]).upper()
+                    if level == "CRITICAL":
+                        commands.extend([
+                            ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#7f1d1d")),
+                            ("TEXTCOLOR", (0, index), (-1, index), colors.white),
+                        ])
+                    elif level == "HIGH":
+                        commands.extend([
+                            ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#9a3412")),
+                            ("TEXTCOLOR", (0, index), (-1, index), colors.white),
+                        ])
+                    elif level == "MEDIUM":
+                        commands.extend([
+                            ("BACKGROUND", (0, index), (-1, index), colors.HexColor("#713f12")),
+                            ("TEXTCOLOR", (0, index), (-1, index), colors.white),
+                        ])
+
+        return TableStyle(commands)
+
     def _stringify(self, value: Any) -> str:
         if value is None:
             return "N/A"
         if isinstance(value, (dict, list)):
             return str(value)
+        if isinstance(value, float) and not math.isfinite(value):
+            return "N/A"
+        if hasattr(value, "item") and not isinstance(value, (str, bytes)):
+            try:
+                return self._stringify(value.item())
+            except Exception:
+                pass
         return str(value)
