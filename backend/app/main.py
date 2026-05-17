@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 ROUTER_MODULES = (
     "health_routes",
-    "auth_routes",
     "auto_sar_routes",
     "ingestion_routes",
     "pipeline_routes",
@@ -21,11 +20,8 @@ ROUTER_MODULES = (
     "hydra_routes",
     "chronos_routes",
     "model_command_center_routes",
-    "analysis_routes",
     "mule_routes",
     "ml_routes",
-    "db_routes",
-    "gan_routes",
 )
 
 mounted_routers: list[str] = []
