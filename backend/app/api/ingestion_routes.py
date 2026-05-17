@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Dict, List
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from ..services.ingestion_service import ingestion_service
@@ -65,7 +65,31 @@ def _validate_upload_files(files: List[UploadFile]) -> Dict[str, UploadFile]:
 
 
 @router.post("/upload")
-async def upload_ingestion(files: List[UploadFile] = File(...)):
+async def upload_ingestion(request: Request):
+    try:
+        form = await request.form()
+    except Exception as exc:
+        if "multipart" in str(exc).lower():
+            return JSONResponse(
+                status_code=503,
+                content=ingestion_error_response(
+                    [
+                        {
+                            "file": "__request__",
+                            "column": "__multipart__",
+                            "issue": "python-multipart is required for CSV upload. Install backend requirements.",
+                        }
+                    ]
+                ),
+            )
+        raise
+
+    files = [
+        item
+        for item in form.getlist("files")
+        if hasattr(item, "filename") and hasattr(item, "read")
+    ]
+
     try:
         file_map = _validate_upload_files(files)
     except HTTPException as exc:

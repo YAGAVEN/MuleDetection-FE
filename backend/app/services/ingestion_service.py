@@ -9,6 +9,7 @@ from typing import Any, Dict
 
 from .storage_service import storage_service
 from .validation_service import validation_service
+from ..data.loader import invalidate_cache
 
 
 logger = logging.getLogger("trinetra.ingestion")
@@ -46,6 +47,7 @@ class IngestionService:
         }
         storage_service.save_json("validation-report.json", result["report"])
         storage_service.save_json("ingestion-metadata.json", metadata)
+        invalidate_cache()
 
         logger.info(
             "Ingestion successful. master_rows=%s transaction_rows=%s",
@@ -109,6 +111,7 @@ class IngestionService:
 
     def clear(self) -> Dict[str, Any]:
         storage_service.clear_ingestion_data()
+        invalidate_cache()
         try:
             from .pipeline_status_service import pipeline_status_service
             pipeline_status_service.reset()

@@ -39,13 +39,55 @@ for dir_path in [LGBM_RESULTS_DIR, GNN_RESULTS_DIR, ENSEMBLE_RESULTS_DIR, SHAP_R
 
 
 def _sync_trained_artifacts() -> None:
-    artifact_pairs = [(TRAINED_LGBM_SOURCE, TRAINED_LGBM_LOCAL)]
-    for source, destination in artifact_pairs:
-        if not source.exists():
-            continue
+    """Copy available trained artifacts from the Mule-data workspace into the runtime
+    MODEL_ARTIFACTS_DIR so the runtime can load them. This will copy any LGBM,
+    GNN, ensemble, and GAN-related artifacts found under Mule-data.
+    """
+    candidates = []
+
+    # Explicit known LGBM source
+    candidates.append((TRAINED_LGBM_SOURCE, TRAINED_LGBM_LOCAL))
+
+    # Directories to scan in Mule-data for artifacts
+    mule_models_dir = PROJECT_ROOT / "Mule-data" / "models"
+    mule_gnn_dir = PROJECT_ROOT / "Mule-data" / "gnn"
+    mule_gan_dir = PROJECT_ROOT / "Mule-data" / "gan_training"
+
+    for d in (mule_models_dir, mule_gnn_dir, mule_gan_dir):
         try:
+            if d.exists() and d.is_dir():
+                for p in d.iterdir():
+                    if not p.is_file():
+                        continue
+                    name = p.name.lower()
+                    # Heuristic: copy files that look like model artifacts
+                    if (
+                        "lgbm" in name
+                        or "gnn" in name
+                        or "ensemble" in name
+                        or "gan" in name
+                        or p.suffix.lower() in {".pkl", ".txt", ".pt", ".pth"}
+                    ):
+                        dest = MODEL_ARTIFACTS_DIR / p.name
+                        candidates.append((p, dest))
+        except OSError as exc:
+            logger.warning("Failed scanning directory %s for artifacts: %s", d, exc)
+
+    # Deduplicate destinations and copy
+    seen = set()
+    for source, destination in candidates:
+        try:
+            destination = Path(destination)
+            if str(destination) in seen:
+                continue
+            seen.add(str(destination))
+
+            if not source.exists():
+                continue
+
             if not destination.exists() or source.stat().st_mtime > destination.stat().st_mtime:
                 shutil.copy2(source, destination)
+                logger.info("Copied artifact %s -> %s", source, destination)
         except OSError as exc:
             logger.warning("Failed to copy trained artifact %s -> %s: %s", source, destination, exc)
 
@@ -74,6 +116,8 @@ def _initialize_runtime_models() -> None:
         (GNN_RUNTIME_PKL, gnn_payload),
         (ENSEMBLE_RUNTIME_PKL, ensemble_payload),
     ):
+        if artifact_path.exists():
+            continue
         try:
             with open(artifact_path, "wb") as artifact_file:
                 pickle.dump(payload, artifact_file)
@@ -578,6 +622,7 @@ class SHAPExplainer:
             "feature_contributions": contributions,
             "top_positive_features": positive[:10],
             "top_negative_features": negative[:10],
+            "top_contributing_features": contributions_sorted[:10],
             "model_used": model_used,
             "shap_version": self.model_version,
             "timestamp": datetime.now().isoformat()

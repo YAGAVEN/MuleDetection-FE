@@ -10,6 +10,7 @@ from typing import Any, Dict
 from .feature_pipeline_service import feature_pipeline_service
 from .pipeline_status_service import pipeline_status_service
 from .prediction_pipeline_service import prediction_pipeline_service
+from .shap_report_service import shap_report_service
 from .storage_service import storage_service
 
 
@@ -73,10 +74,23 @@ class PipelineOrchestrator:
             )
 
             await asyncio.sleep(0.2)
+            
+            # Generate SHAP model reports for suspicious accounts
+            pipeline_status_service.set_stage(
+                "case_generation",
+                "running",
+                "Generating SHAP model reports for suspicious accounts...",
+            )
+            shap_start = datetime.now(timezone.utc)
+            shap_summary = await shap_report_service.generate_model_reports_for_suspicious_accounts()
+            shap_duration = (datetime.now(timezone.utc) - shap_start).total_seconds()
+            pipeline_logger.info("SHAP report generation completed in %.2fs", shap_duration)
+            pipeline_logger.info("SHAP summary: %s", shap_summary)
+            
             pipeline_status_service.set_stage(
                 "case_generation",
                 "completed",
-                "Prediction pipeline completed successfully. Investigation cases generated and ready for CHRONOS visualization.",
+                "Prediction pipeline completed successfully. SHAP model reports generated and ready for analysis.",
             )
             total_duration = (datetime.now(timezone.utc) - started_at).total_seconds()
             pipeline_logger.info("Pipeline completed successfully in %.2fs", total_duration)

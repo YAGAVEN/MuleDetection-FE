@@ -21,6 +21,10 @@ CONFIG = {
     'random_seed': 42,
 }
 
+# Convert Windows paths to forward slashes for consistent handling
+CONFIG['data_path'] = CONFIG['data_path'].replace('\\', '/')
+CONFIG['output_path'] = CONFIG['output_path'].replace('\\', '/')
+
 # Ensure paths end with /
 if not CONFIG['data_path'].endswith('/'):
     CONFIG['data_path'] += '/'

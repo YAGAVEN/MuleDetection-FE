@@ -1,9 +1,5 @@
-"""API package"""
-from . import (
-    dashboard_routes,
-    health_routes,
-    hydra_routes,
-    ingestion_routes,
-    model_command_center_routes,
-    pipeline_routes,
-)
+"""API route package.
+
+Route modules are imported by app.main so optional route dependencies do not
+break package import for the whole backend.
+"""

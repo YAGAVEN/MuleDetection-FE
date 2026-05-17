@@ -1,6 +1,6 @@
 """Pydantic schemas for request/response validation"""
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Literal
 from datetime import datetime
 
 
@@ -233,3 +233,31 @@ class SHAPModelReport(BaseModel):
     
     report_generated_at: datetime
     shap_version: str
+
+
+class AutoSARReportRequest(BaseModel):
+    report_type: Literal[
+        "individual_account",
+        "related_account_network",
+        "entire_investigation",
+        "prediction_model",
+        "hydra_training",
+    ]
+    account_id: Optional[str] = None
+    case_id: Optional[str] = None
+    investigator_name: Optional[str] = "Auto-SAR Intelligence Engine"
+    classification_level: Optional[str] = "Confidential"
+    depth: int = Field(default=2, ge=1, le=5)
+
+
+class AutoSARReportResponse(BaseModel):
+    report_id: str
+    report_type: str
+    title: str
+    risk_level: Optional[str] = None
+    account_id: Optional[str] = None
+    case_id: Optional[str] = None
+    generated_at: datetime
+    pdf_path: str
+    json_path: str
+    summary: Dict[str, Any] = Field(default_factory=dict)
