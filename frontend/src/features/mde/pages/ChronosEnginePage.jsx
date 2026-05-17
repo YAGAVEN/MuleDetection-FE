@@ -1,76 +1,104 @@
-import { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import ReactFlow, { MiniMap, Controls, Background } from 'reactflow'
-import 'reactflow/dist/style.css'
-
 import ChronosPreviewPanel from '../components/ChronosPreviewPanel'
 import NetworkGraphPreview from '../components/NetworkGraphPreview'
 import PageTitle from '../components/PageTitle'
-import GlassCard from '../components/GlassCard'
 
 export default function ChronosEnginePage() {
-  const navigate = useNavigate()
-  const [selectedAccountId, setSelectedAccountId] = useState(null)
-  const [sortField, setSortField] = useState('ensembleScore')
-  const [sortOrder, setSortOrder] = useState('desc')
-  const [query, setQuery] = useState('')
-  const [accountData, setAccountData] = useState([])
-  const [networkData, setNetworkData] = useState({ nodes: [], edges: [] })
-
-  // Load mock data
-  useEffect(() => {
-    // Sample account data for demonstration
-    const mockAccounts = [
-      { accountId: 'ACC001', ensembleScore: 0.92, riskLevel: 'CRITICAL', lgbmScore: 0.95, gnnScore: 0.89, signals: ['High Velocity', 'Unusual Channel'], caseId: 'CASE-001' },
-      { accountId: 'ACC002', ensembleScore: 0.78, riskLevel: 'HIGH', lgbmScore: 0.80, gnnScore: 0.76, signals: ['Round Trip', 'Multiple Channels'], caseId: 'CASE-002' },
-      { accountId: 'ACC003', ensembleScore: 0.65, riskLevel: 'MEDIUM', lgbmScore: 0.68, gnnScore: 0.62, signals: ['Pattern Match'], caseId: 'CASE-003' },
-      { accountId: 'ACC004', ensembleScore: 0.88, riskLevel: 'CRITICAL', lgbmScore: 0.85, gnnScore: 0.91, signals: ['Layering Detected', 'Cross Border'], caseId: 'CASE-004' },
-      { accountId: 'ACC005', ensembleScore: 0.72, riskLevel: 'HIGH', lgbmScore: 0.70, gnnScore: 0.74, signals: ['Structuring'], caseId: 'CASE-005' },
-    ]
-    setAccountData(mockAccounts)
-
-    // Sample network data
-    setNetworkData({
-      nodes: [
-        { id: 'ACC001', label: 'ACC001', position: { x: 0, y: 0 } },
-        { id: 'ACC002', label: 'ACC002', position: { x: 100, y: 100 } },
-        { id: 'ACC003', label: 'ACC003', position: { x: -100, y: 100 } },
-      ],
-      edges: [
-        { id: 'e1-2', source: 'ACC001', target: 'ACC002' },
-        { id: 'e1-3', source: 'ACC001', target: 'ACC003' },
-      ],
-    })
-  }, [])
-
-  const toggleSort = (field) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortOrder('desc')
-    }
-  }
-
-  const sortedRows = useMemo(() => {
-    const sorted = [...accountData].sort((a, b) => {
-      const aVal = a[sortField]
-      const bVal = b[sortField]
-      const comparison = aVal > bVal ? 1 : -1
-      return sortOrder === 'asc' ? comparison : -comparison
-    })
-    return sorted
-  }, [accountData, sortField, sortOrder])
-
   return (
     <section className="space-y-4 pb-4">
       <PageTitle
         title="CHRONOS Intelligence"
-        subtitle="Replay laundering movement over time and inspect suspicious graph clusters."
+        subtitle="Replay laundering movement over time using live transactions, temporal edges, and risk distribution."
       />
-      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
-        <ChronosPreviewPanel />
-        <NetworkGraphPreview />
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        <GlassCard className="p-5 xl:col-span-1">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold">Transaction Flow</h3>
+            <p className="text-xs text-slate-400">Volume and exposure by day</p>
+          </div>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={transactionTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis dataKey="label" stroke="#64748b" />
+                <YAxis yAxisId="left" stroke="#64748b" />
+                <YAxis yAxisId="right" orientation="right" stroke="#64748b" />
+                <Tooltip contentStyle={{ background: '#020617', border: '1px solid #334155' }} />
+                <Legend />
+                <Bar yAxisId="left" dataKey="transactions" name="Transactions" fill="#22d3ee" radius={[6, 6, 0, 0]} />
+                <Line yAxisId="right" type="monotone" dataKey="amountLakh" name="Amount (Lakhs)" stroke="#f97316" strokeWidth={2} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5 xl:col-span-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold">Temporal Money Flow Graph</h3>
+            <p className="text-xs text-slate-400">Core CHRONOS replay visualization</p>
+          </div>
+          <div className="relative h-[320px] overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(circle_at_center,_rgba(34,211,238,0.12),_rgba(2,6,23,0.96)_62%)]">
+            <svg viewBox="0 0 500 340" className="h-full w-full">
+              <defs>
+                <radialGradient id="clusterGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.32" />
+                  <stop offset="100%" stopColor="#67e8f9" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              {Object.entries(clusterGraph.centers).map(([level, center]) => (
+                <g key={level}>
+                  <circle cx={center.x} cy={center.y} r="72" fill="url(#clusterGlow)" opacity="0.7" />
+                  <circle cx={center.x} cy={center.y} r="66" fill="none" stroke={pieColors[level]} strokeOpacity="0.25" strokeDasharray="6 6" />
+                  <text x={center.x} y={center.y - 80} textAnchor="middle" fill={pieColors[level]} fontSize="13" fontWeight="700">
+                    {level}
+                  </text>
+                  <text x={center.x} y={center.y - 64} textAnchor="middle" fill="#cbd5e1" fontSize="9">
+                    {clusterGraph.counts[level] || 0} accounts
+                  </text>
+                </g>
+              ))}
+              {clusterGraph.nodes.map((node) => {
+                const fill = pieColors[node.riskLevel] || '#22d3ee'
+                const size = 7 + Math.min(8, node.score * 4)
+                return (
+                  <g key={node.id}>
+                    <circle cx={node.x} cy={node.y} r={size + 5} fill={fill} fillOpacity="0.12" />
+                    <circle cx={node.x} cy={node.y} r={size} fill={fill} fillOpacity="0.92" stroke="#e2e8f0" strokeOpacity="0.18" />
+                    <text x={node.x} y={node.y - size - 4} textAnchor="middle" fill="#cbd5e1" fontSize="8">
+                      {node.id}
+                    </text>
+                  </g>
+                )
+              })}
+            </svg>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-300">
+            {['txn_velocity', 'fan_in_ratio', 'fan_out_ratio', 'net_flow', 'credit_debit_ratio', 'pct_within_6h', 'mean_passthrough_hours', 'channel_entropy'].map((feature) => (
+              <div key={feature} className="rounded-md border border-white/10 bg-black/20 px-2 py-1">
+                {feature}
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5 xl:col-span-1">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold">Risk Mix</h3>
+            <p className="text-xs text-slate-400">Mule probability distribution</p>
+          </div>
+          <div className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={riskDistribution} dataKey="value" nameKey="name" innerRadius={55} outerRadius={92} paddingAngle={4}>
+                  {riskDistribution.map((entry) => (
+                    <Cell key={entry.name} fill={pieColors[entry.name] || '#64748b'} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#020617', border: '1px solid #334155' }} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
       </div>
 
       <GlassCard className="p-5">
@@ -104,11 +132,20 @@ export default function ChronosEnginePage() {
               </tr>
             </thead>
             <tbody>
+              {!sortedRows.length && (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-slate-400">
+                    No uploaded risk scores available yet.
+                  </td>
+                </tr>
+              )}
               {sortedRows.slice(0, 25).map((row) => (
                 <tr
                   key={row.accountId}
                   onClick={() => setSelectedAccountId(row.accountId)}
-                  className="border-b border-white/5 hover:bg-white/5 cursor-pointer"
+                  className={`border-b border-white/5 hover:bg-white/5 cursor-pointer ${
+                    selectedAccountId === row.accountId ? 'bg-cyan-500/10' : ''
+                  }`}
                 >
                   <td className="py-2.5 pr-3 font-mono text-cyan-200">{row.accountId}</td>
                   <td className="py-2.5 pr-3 text-white">{row.ensembleScore.toFixed(2)}</td>
@@ -121,8 +158,7 @@ export default function ChronosEnginePage() {
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation()
-                        setQuery(row.caseId || row.accountId)
-                        navigate('/mde/cases')
+                        navigate('/mde/cases', { state: { query: row.caseId || row.accountId } })
                       }}
                       className="px-2 py-1 text-xs rounded-md border border-cyan-300/30 bg-cyan-500/10 text-cyan-100"
                     >
@@ -138,22 +174,13 @@ export default function ChronosEnginePage() {
 
       <GlassCard className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-white font-semibold">Suspicious Network View</h3>
-          <p className="text-xs text-slate-400">Suspicious subset only</p>
+          <h3 className="text-white font-semibold">Chronos Data Notes</h3>
+          <p className="text-xs text-slate-400">
+            {timelineStatus === 'ready' ? `${timelineData.length} live transactions loaded` : timelineStatus === 'error' ? 'Live data unavailable' : 'Loading live data...'}
+          </p>
         </div>
-        <div className="h-[320px] rounded-xl border border-white/10 overflow-hidden bg-slate-950/40">
-          <ReactFlow
-            nodes={networkData.nodes}
-            edges={networkData.edges}
-            fitView
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
-          >
-            <MiniMap zoomable pannable nodeColor="#22d3ee" />
-            <Controls />
-            <Background color="#1e293b" gap={24} />
-          </ReactFlow>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+          <p>Charts are derived from uploaded transaction temp-data and risk-score output. The hero graph replays flows over time.</p>
         </div>
       </GlassCard>
     </section>

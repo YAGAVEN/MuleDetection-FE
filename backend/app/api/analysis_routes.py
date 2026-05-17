@@ -23,8 +23,8 @@ async def run_full_analysis_pipeline() -> Dict[str, Any]:
         logger.info("🚀 Starting full analysis pipeline on newly ingested data...")
         
         from ..services.storage_service import storage_service
-        from ..services.feature_engineering import FeatureEngineer
-        from ..services.ml_models import get_model_manager
+        from ..services.feature_pipeline_service import feature_pipeline_service
+        from ..services.prediction_pipeline_service import prediction_pipeline_service
         from ..services.shap_report_service import shap_report_service
         
         temp_dir = storage_service.temp_data_dir
@@ -52,65 +52,15 @@ async def run_full_analysis_pipeline() -> Dict[str, Any]:
         
         # Step 2: Feature Engineering
         logger.info("🔧 Step 2/4: Feature Engineering...")
-        feature_engineer = FeatureEngineer()
-        engineered_count = 0
-        engineered_features_list = []
+        feature_meta = await feature_pipeline_service.run()
+        engineered_count = int(feature_meta.get("rows", 0))
+        logger.info("✅ Feature engineering complete: %s/%s accounts", engineered_count, len(master_df))
         
-        for idx, row in master_df.iterrows():
-            try:
-                # Convert row to dict with all available data
-                account_data = row.to_dict()
-                
-                features = feature_engineer.engineer_features(account_data)
-                account_id = str(account_data.get('account_id', f'ACC_{idx}'))
-                
-                feature_engineer.save_features(account_id, features)
-                
-                # Collect for later use
-                features['account_id'] = account_id
-                engineered_features_list.append(features)
-                engineered_count += 1
-                
-                if (idx + 1) % 50 == 0:
-                    logger.info(f"  ✓ Engineered features for {idx + 1}/{len(master_df)} accounts")
-            except Exception as e:
-                logger.error(f"  ✗ Feature engineering failed for row {idx}: {e}")
-                continue
-        
-        logger.info(f"✅ Feature engineering complete: {engineered_count}/{len(master_df)} accounts")
-        
-        # Step 3: Model Predictions
+        # Step 3: Model Predictions (runtime artifacts + model manager)
         logger.info("🤖 Step 3/4: Running ML Model Predictions...")
-        model_manager = get_model_manager()
-        predictions_count = 0
-        predictions_list = []
-        
-        for idx, features in enumerate(engineered_features_list):
-            try:
-                account_id = features.pop('account_id')
-                
-                # Get predictions from ensemble model
-                result = model_manager.predict_mule_score(account_id, features)
-                predictions_list.append(result)
-                predictions_count += 1
-                
-                if (idx + 1) % 50 == 0:
-                    logger.info(f"  ✓ Predictions for {idx + 1}/{len(engineered_features_list)} accounts")
-            except Exception as e:
-                logger.error(f"  ✗ Prediction failed for account {features.get('account_id')}: {e}")
-                continue
-        
-        logger.info(f"✅ Model predictions complete: {predictions_count}/{len(engineered_features_list)} accounts")
-        
-        # Save predictions to CSV for SHAP service to use
-        if predictions_list:
-            try:
-                predictions_df = pd.DataFrame(predictions_list)
-                predictions_file = temp_dir / "predictions.csv"
-                predictions_df.to_csv(predictions_file, index=False)
-                logger.info(f"✅ Saved predictions to {predictions_file}")
-            except Exception as e:
-                logger.warning(f"⚠️  Could not save predictions to CSV: {e}")
+        prediction_summary = await prediction_pipeline_service.run()
+        predictions_count = int(prediction_summary.get("total_accounts_scored", 0))
+        logger.info("✅ Model predictions complete: %s/%s accounts", predictions_count, engineered_count)
         
         # Step 4: Generate SHAP Reports
         logger.info("📋 Step 4/4: Generating SHAP Explainability Reports...")

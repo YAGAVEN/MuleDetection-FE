@@ -3,6 +3,7 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 python-dotenv
+PyJWT
 supabase
 python-multipart
 numpy
@@ -16,3 +17,6 @@ httpx
 sqlalchemy
 shap
 reportlab
+matplotlib
+plotly
+Jinja2

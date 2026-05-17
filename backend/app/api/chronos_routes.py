@@ -9,7 +9,14 @@ import logging
 from pydantic import BaseModel, Field
 
 from ..data import get_transactions, get_account_features
+from ..services.risk_thresholds import (
+    CRITICAL_ABOVE_PCT_RANK,
+    HIGH_UPTO_PCT_RANK,
+    LOW_UPTO_PCT_RANK,
+    MEDIUM_UPTO_PCT_RANK,
+)
 from ..services.storage_service import storage_service
+from ..utils.response_utils import sanitize_json_value
 
 router = APIRouter(prefix="/api/chronos", tags=["Chronos Timeline"])
 logger = logging.getLogger(__name__)
@@ -173,6 +180,18 @@ async def get_timeline(
                 "time_quantum": time_quantum,
                 "message": "No transactions found",
             }
+
+        # Apply scenario filter
+        if scenario and scenario != "all":
+            if scenario == "high-risk":
+                if "risk_score" in df.columns:
+                    df = df[df["risk_score"] > HIGH_UPTO_PCT_RANK]
+            elif scenario == "flagged":
+                if "is_flagged" in df.columns:
+                    df = df[df["is_flagged"] == 1]
+            elif scenario == "normal":
+                if "risk_score" in df.columns:
+                    df = df[df["risk_score"] <= LOW_UPTO_PCT_RANK]
         
         # Apply scenario filter
         scenario_filters = []
@@ -275,7 +294,7 @@ async def get_timeline(
         
         filter_msg = f" (filtered by: {', '.join(filters_applied)})" if filters_applied else ""
         
-        return {
+        return sanitize_json_value({
             "status": "success",
             "data": records,
             "total_transactions": len(df),
@@ -283,7 +302,7 @@ async def get_timeline(
             "layering_summary": layering_summary,
             "time_quantum": time_quantum,
             "message": f"Successfully loaded {len(df)} transactions{filter_msg}",
-        }
+        })
         
     except FileNotFoundError as e:
         logger.error(f"Transaction file not found: {e}")
@@ -311,11 +330,11 @@ async def get_available_accounts() -> Dict[str, Any]:
         df = get_transactions()
         
         if df.empty or "account_id" not in df.columns:
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "accounts": [],
                 "message": "No accounts found",
-            }
+            })
         
         account_counts = df["account_id"].value_counts().head(100).to_dict()
         accounts = [
@@ -323,12 +342,12 @@ async def get_available_accounts() -> Dict[str, Any]:
             for account, count in account_counts.items()
         ]
         
-        return {
+        return sanitize_json_value({
             "status": "success",
             "accounts": sorted(accounts, key=lambda x: x["transaction_count"], reverse=True),
             "total_unique_accounts": df["account_id"].nunique(),
             "message": f"Found {len(accounts)} accounts (showing top 100)",
-        }
+        })
         
     except FileNotFoundError as e:
         logger.error(f"Transaction file not found: {e}")
@@ -350,11 +369,11 @@ async def get_available_channels() -> Dict[str, Any]:
         df = get_transactions()
         
         if df.empty or "channel" not in df.columns:
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "channels": [],
                 "message": "No channels found",
-            }
+            })
         
         channel_counts = df["channel"].value_counts().to_dict()
         channels = [
@@ -362,12 +381,12 @@ async def get_available_channels() -> Dict[str, Any]:
             for channel, count in channel_counts.items()
         ]
         
-        return {
+        return sanitize_json_value({
             "status": "success",
             "channels": sorted(channels, key=lambda x: x["count"], reverse=True),
             "total_channels": len(channels),
             "message": f"Found {len(channels)} unique channels",
-        }
+        })
         
     except FileNotFoundError as e:
         logger.error(f"Transaction file not found: {e}")
@@ -389,23 +408,23 @@ async def get_mule_accounts() -> Dict[str, Any]:
         features_df = get_account_features()
         
         if features_df.empty or "is_mule" not in features_df.columns:
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "mule_accounts": [],
                 "total_mule_count": 0,
                 "message": "No mule accounts found",
-            }
+            })
         
         # Get mule accounts
         mule_df = features_df[features_df["is_mule"] == 1].copy()
         
         if mule_df.empty:
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "mule_accounts": [],
                 "total_mule_count": 0,
                 "message": "No accounts flagged as mule",
-            }
+            })
         
         # Select key risk features
         mule_df = mule_df[[
@@ -417,13 +436,13 @@ async def get_mule_accounts() -> Dict[str, Any]:
         
         mule_accounts = mule_df.to_dict("records")
         
-        return {
+        return sanitize_json_value({
             "status": "success",
             "mule_accounts": mule_accounts,
             "total_mule_count": (features_df["is_mule"] == 1).sum(),
             "showing_count": len(mule_accounts),
             "message": f"Found {(features_df['is_mule'] == 1).sum()} mule accounts (showing top 100)",
-        }
+        })
         
     except FileNotFoundError as e:
         logger.error(f"Features file not found: {e}")
@@ -462,14 +481,14 @@ async def search_transactions(request: SearchRequest) -> Dict[str, Any]:
         df = get_transactions()
         
         if df.empty:
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "results": [],
                 "total_matches": 0,
                 "search_term": search_term,
                 "search_type": search_type,
                 "message": "No transactions to search",
-            }
+            })
         
         # Map search types to dataframe columns
         column_mapping = {
@@ -512,14 +531,14 @@ async def search_transactions(request: SearchRequest) -> Dict[str, Any]:
         
         # Apply mask if no results yet
         if mask is None or not mask.any():
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "results": [],
                 "total_matches": 0,
                 "search_term": search_term,
                 "search_type": search_type,
                 "message": f"No matches found for '{search_term}' in {search_type}",
-            }
+            })
         
         # Filter and get results
         results_df = df[mask].copy()
@@ -538,14 +557,14 @@ async def search_transactions(request: SearchRequest) -> Dict[str, Any]:
         else:
             message = f"Found {len(results)} matches"
         
-        return {
+        return sanitize_json_value({
             "status": "success",
             "results": results,
             "total_matches": len(results_df),
             "search_term": search_term,
             "search_type": search_type,
             "message": message,
-        }
+        })
         
     except HTTPException:
         raise
@@ -576,13 +595,13 @@ async def get_accounts_with_risk_scores(
         risk_scores_data = load_risk_scores()
         
         if not risk_scores_data or "scores" not in risk_scores_data:
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "accounts": [],
                 "total_accounts": 0,
                 "message": "No risk scores available. Run the prediction pipeline first.",
                 "pipeline_status": "not_run"
-            }
+            })
         
         risk_scores = risk_scores_data["scores"]
         
@@ -593,13 +612,13 @@ async def get_accounts_with_risk_scores(
         transactions = get_transactions()
         
         if transactions.empty:
-            return {
+            return sanitize_json_value({
                 "status": "success",
                 "accounts": risk_scores[:limit],
                 "total_accounts": len(risk_scores),
                 "message": f"Risk scores available for {len(risk_scores)} accounts",
                 "pipeline_status": "completed"
-            }
+            })
         
         # Enrich risk scores with transaction metrics
         enriched_accounts = []
@@ -625,12 +644,12 @@ async def get_accounts_with_risk_scores(
         
         # Calculate summary statistics
         all_scores = [acc.get("ensemble_score", 0) for acc in risk_scores]
-        critical_count = sum(1 for score in all_scores if score >= 0.85)
-        high_count = sum(1 for score in all_scores if 0.7 <= score < 0.85)
-        medium_count = sum(1 for score in all_scores if 0.45 <= score < 0.7)
-        low_count = sum(1 for score in all_scores if score < 0.45)
+        critical_count = sum(1 for score in all_scores if score >= CRITICAL_ABOVE_PCT_RANK)
+        high_count = sum(1 for score in all_scores if MEDIUM_UPTO_PCT_RANK <= score < HIGH_UPTO_PCT_RANK)
+        medium_count = sum(1 for score in all_scores if LOW_UPTO_PCT_RANK <= score < MEDIUM_UPTO_PCT_RANK)
+        low_count = sum(1 for score in all_scores if score < LOW_UPTO_PCT_RANK)
         
-        return {
+        return sanitize_json_value({
             "status": "success",
             "accounts": enriched_accounts,
             "total_accounts": len(risk_scores),
@@ -643,7 +662,7 @@ async def get_accounts_with_risk_scores(
             },
             "message": f"Risk scores available for {len(risk_scores)} accounts",
             "pipeline_status": "completed"
-        }
+        })
         
     except Exception as e:
         logger.error(f"Error fetching accounts with risk scores: {e}")

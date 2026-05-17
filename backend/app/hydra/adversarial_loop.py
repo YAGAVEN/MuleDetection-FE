@@ -28,24 +28,46 @@ def run_adversarial_loop(
         publish_event("attacker", "Created evasive mule graph")
 
         result = engine.run_round()
-        publish_event("defender", "GNN adapted to graph mutation")
+        publish_event(
+            "defender",
+            f"GNN adapted to graph mutation (detection {result['detection_rate'] * 100:.1f}%)",
+        )
 
         model_sync = apply_incremental_defender_update(result["attack_success_rate"])
-        publish_event("defender", "Ensemble resilience increased")
+        post_update_accuracy = engine.evaluate_model_accuracy(limit=96)
+        publish_event(
+            "defender",
+            (
+                "Ensemble resilience increased "
+                f"(version {model_sync.get('ensemble_version', 'n/a')}, "
+                f"accuracy {((post_update_accuracy.get('model_accuracy') or 0) * 100):.1f}%)"
+            ),
+        )
 
         resilience = tracker.update(
             total_attacks=result["attacks_evaluated"],
             detected_attacks=result["detected_attacks"],
             attack_success_rate=result["attack_success_rate"],
         )
-        publish_event("defender", "Defender blocked synthetic laundering flow")
+        publish_event(
+            "defender",
+            (
+                "Defender blocked synthetic laundering flow "
+                f"(resilience {resilience['resilience_score']:.1f}, Δ {resilience['resilience_delta']:+.1f})"
+            ),
+        )
 
         update_status(
             {
                 "round": round_index,
                 "result": result,
                 "resilience": resilience,
-                "model_sync": model_sync,
+                "model_sync": {
+                    **model_sync,
+                    "post_update_accuracy": post_update_accuracy,
+                },
+                "gnn_status": "stable",
+                "ensemble_status": "updated",
                 "training_status": "running",
             }
         )
@@ -53,4 +75,3 @@ def run_adversarial_loop(
         if max_rounds and round_index >= max_rounds:
             break
         time.sleep(interval_seconds)
-
