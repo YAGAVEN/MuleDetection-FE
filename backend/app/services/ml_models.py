@@ -19,7 +19,8 @@ SERVICE_FILE = Path(__file__).resolve()
 BACKEND_ROOT = SERVICE_FILE.parents[2]
 PROJECT_ROOT = SERVICE_FILE.parents[3]
 ML_RESULTS_ROOT = BACKEND_ROOT / "ml_results"
-MODEL_ARTIFACTS_DIR = ML_RESULTS_ROOT / "models"
+MODEL_ARTIFACTS_DIR = BACKEND_ROOT / "app" / "models"
+LEGACY_MODEL_ARTIFACTS_DIR = ML_RESULTS_ROOT / "models"
 
 LGBM_RESULTS_DIR = str(ML_RESULTS_ROOT / "lgbm")
 GNN_RESULTS_DIR = str(ML_RESULTS_ROOT / "gnn")
@@ -47,6 +48,15 @@ def _sync_trained_artifacts() -> None:
 
     # Explicit known LGBM source
     candidates.append((TRAINED_LGBM_SOURCE, TRAINED_LGBM_LOCAL))
+
+    # Preserve artifacts generated in the previous runtime location
+    try:
+        if LEGACY_MODEL_ARTIFACTS_DIR.exists() and LEGACY_MODEL_ARTIFACTS_DIR.is_dir():
+            for p in LEGACY_MODEL_ARTIFACTS_DIR.iterdir():
+                if p.is_file():
+                    candidates.append((p, MODEL_ARTIFACTS_DIR / p.name))
+    except OSError as exc:
+        logger.warning("Failed scanning legacy artifacts directory %s: %s", LEGACY_MODEL_ARTIFACTS_DIR, exc)
 
     # Directories to scan in Mule-data for artifacts
     mule_models_dir = PROJECT_ROOT / "Mule-data" / "models"
@@ -155,7 +165,15 @@ class LightGBMPredictor:
                     metadata = pickle.load(artifact_file)
                 configured_path = metadata.get("model_path")
                 if isinstance(configured_path, str) and configured_path:
-                    model_path = Path(configured_path)
+                    configured_model_path = Path(configured_path)
+                    if configured_model_path.exists():
+                        model_path = configured_model_path
+                    else:
+                        logger.warning(
+                            "Configured LightGBM model path does not exist: %s; falling back to %s",
+                            configured_model_path,
+                            TRAINED_LGBM_LOCAL,
+                        )
             except (OSError, pickle.UnpicklingError, AttributeError) as exc:
                 logger.warning("Failed loading LightGBM runtime artifact %s: %s", LGBM_RUNTIME_PKL, exc)
 
