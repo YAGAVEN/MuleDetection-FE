@@ -59,14 +59,28 @@ def load_transactions(filepath: str = None) -> pd.DataFrame:
     """
     if filepath is None:
         # Prefer the uploaded/runtime transaction files used by Chronos.
-        candidates = [
-            os.path.join("backend", "temp-data", "transactions_full.csv"),
-            os.path.join("Mule-data", "transactions_full.csv"),
-            os.path.join("backend", "data", "transactions.csv"),
-            os.path.join("backend", "data", "master.csv"),
-            os.path.join("Mule-data", "master.csv"),
-            os.path.join("transactions.csv"),
-        ]
+        # Adjust paths based on current working directory
+        cwd = os.getcwd()
+        if cwd.endswith("backend"):
+            # We're running from the backend directory
+            candidates = [
+                os.path.join("temp-data", "transactions_full.csv"),
+                os.path.join("..", "Mule-data", "transactions_full.csv"),
+                os.path.join("data", "transactions.csv"),
+                os.path.join("data", "master.csv"),
+                os.path.join("..", "Mule-data", "master.csv"),
+                os.path.join("transactions.csv"),
+            ]
+        else:
+            # We're running from project root
+            candidates = [
+                os.path.join("backend", "temp-data", "transactions_full.csv"),
+                os.path.join("Mule-data", "transactions_full.csv"),
+                os.path.join("backend", "data", "transactions.csv"),
+                os.path.join("backend", "data", "master.csv"),
+                os.path.join("Mule-data", "master.csv"),
+                os.path.join("transactions.csv"),
+            ]
         found = None
         for cand in candidates:
             if os.path.exists(cand):
@@ -112,14 +126,28 @@ def load_account_features(filepath: str = None) -> pd.DataFrame:
         RuntimeError: If loading fails
     """
     if filepath is None:
-        candidates = [
-            os.path.join("backend", "temp-data", "engineered_features.csv"),
-            os.path.join("backend", "temp-data", "features_combined.csv"),
-            os.path.join("Mule-data", "features.csv"),
-            os.path.join(DATA_DIR, "account_features.csv"),
-            os.path.join("backend", "data", "features.csv"),
-            os.path.join("account_features.csv"),
-        ]
+        # Adjust paths based on current working directory
+        cwd = os.getcwd()
+        if cwd.endswith("backend"):
+            # We're running from the backend directory
+            candidates = [
+                os.path.join("temp-data", "engineered_features.csv"),
+                os.path.join("temp-data", "features_combined.csv"),
+                os.path.join("..", "Mule-data", "data", "features.csv"),
+                os.path.join(DATA_DIR, "account_features.csv"),
+                os.path.join("data", "features.csv"),
+                os.path.join("account_features.csv"),
+            ]
+        else:
+            # We're running from project root
+            candidates = [
+                os.path.join("backend", "temp-data", "engineered_features.csv"),
+                os.path.join("backend", "temp-data", "features_combined.csv"),
+                os.path.join("Mule-data", "data", "features.csv"),
+                os.path.join(DATA_DIR, "account_features.csv"),
+                os.path.join("backend", "data", "features.csv"),
+                os.path.join("account_features.csv"),
+            ]
         filepath = next((candidate for candidate in candidates if os.path.exists(candidate)), candidates[0])
     
     # If relative path, try from current directory first, then from parent

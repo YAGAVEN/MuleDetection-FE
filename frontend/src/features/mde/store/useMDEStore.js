@@ -306,6 +306,7 @@ export const useMDEStore = create((set, get) => ({
   networkNodes: NETWORK_NODES,
   networkEdges: NETWORK_EDGES,
   pipelinePollInterval: null,
+  dashboardData: null, // Raw dashboard data for investigation metrics
 
   setSidebarCollapsed: (value) => set({ sidebarCollapsed: value }),
   setQuery: (value) => set({ query: value, page: 1 }),
@@ -434,6 +435,7 @@ export const useMDEStore = create((set, get) => ({
       const nextState = {
         dashboardStatus: 'online',
         dashboardStatusMessage: 'Live runtime data',
+        dashboardData: dashboard, // Store raw dashboard data for investigation metrics
       }
 
       const kpis = normalizeKpis(dashboard)

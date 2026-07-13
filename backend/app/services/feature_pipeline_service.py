@@ -19,7 +19,7 @@ from .storage_service import storage_service
 class FeaturePipelineService:
     def __init__(self) -> None:
         self.project_root = Path(__file__).resolve().parents[3]
-        self.script_path = self.project_root / "Mule-data" / "feature_extraction_pipeline.py"
+        self.script_path = self.project_root / "Mule-data" / "models" / "feature_extraction_pipeline.py"
 
     def _run_subprocess(self, script_path: str, cwd: str, env: dict) -> str:
         """Run feature extraction script synchronously (for Windows compatibility)."""

@@ -11,6 +11,17 @@ FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 BACKEND_PID=""
 FRONTEND_PID=""
 
+kill_port_listeners() {
+  local port="$1"
+  local pids
+
+  pids="$(lsof -t -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
+  if [[ -n "${pids}" ]]; then
+    echo "Stopping existing listener(s) on port ${port}..."
+    kill ${pids} 2>/dev/null || true
+  fi
+}
+
 cleanup() {
   echo ""
   echo "Stopping services..."
@@ -34,15 +45,18 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+kill_port_listeners "${BACKEND_PORT}"
+kill_port_listeners "${FRONTEND_PORT}"
+
 echo "Starting backend (port ${BACKEND_PORT})..."
 cd "$BACKEND_DIR"
 
-if [[ ! -d "venv" ]]; then
-  python3 -m venv venv
+if [[ ! -d ".venv" ]]; then
+  python3 -m venv .venv
 fi
 
-source venv/bin/activate
-pip install -r requirements.txt >/dev/null
+source .venv/bin/activate
+pip install -r ../docs/backend_docs/requirements.txt >/dev/null
 uvicorn app.main:app --reload --host 0.0.0.0 --port "${BACKEND_PORT}" &
 BACKEND_PID=$!
 deactivate
