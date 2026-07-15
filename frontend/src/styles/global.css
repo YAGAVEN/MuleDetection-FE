@@ -1,28 +1,28 @@
 @import "tailwindcss";
 @import "./design-tokens.css";
 
-/* ===== Design Tokens ===== */
+/* ===== TriNetra Cyber Security Professional Theme ===== */
 @theme {
   --color-primary: #00ff87;
   --color-secondary: #00d4ff;
-  --color-dark: #0a0a0f;
-  --color-dark-secondary: #1a1a2e;
-  --color-dark-accent: #16213e;
+  --color-dark: #050507;
+  --color-dark-secondary: #0a0a0f;
+  --color-dark-accent: #141419;
 
   --animate-float: float 6s ease-in-out infinite;
   --animate-glow: glow 2s ease-in-out infinite alternate;
   --animate-battle: battle 2s ease-in-out infinite;
 }
 
-/* ===== Keyframes ===== */
+/* ===== Professional Keyframes ===== */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-20px); }
 }
 
 @keyframes glow {
-  from { box-shadow: 0 0 20px #00ff87; }
-  to { box-shadow: 0 0 30px #00ff87, 0 0 40px #00ff87; }
+  from { box-shadow: 0 0 20px rgba(0, 255, 135, 0.4); }
+  to { box-shadow: 0 0 30px rgba(0, 255, 135, 0.6), 0 0 40px rgba(0, 255, 135, 0.4); }
 }
 
 @keyframes battle {
@@ -31,57 +31,93 @@
   75% { transform: scale(1.05) rotate(-1deg); }
 }
 
-/* ===== Base ===== */
+/* ===== Base Styling ===== */
 body {
-  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+  background: linear-gradient(135deg, #050507 0%, #0a0a0f 50%, #141419 100%);
   min-height: 100vh;
-  color: white;
+  color: var(--color-text-primary);
   overflow-x: hidden;
+  font-family: var(--font-body);
 }
 
-/* ===== Slider ===== */
+/* ===== Professional Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ===== Slider Styling ===== */
 .slider::-webkit-slider-thumb {
   appearance: none;
   height: 20px;
   width: 20px;
   border-radius: 50%;
-  background: #00ff87;
+  background: var(--color-success);
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 255, 135, 0.5);
+  box-shadow: var(--glow-success);
+  transition: all var(--transition-fast);
 }
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 25px rgba(0, 255, 135, 0.5);
+}
+
 .slider::-moz-range-thumb {
   height: 20px;
   width: 20px;
   border-radius: 50%;
-  background: #00ff87;
+  background: var(--color-success);
   cursor: pointer;
   border: none;
-  box-shadow: 0 0 10px rgba(0, 255, 135, 0.5);
+  box-shadow: var(--glow-success);
+  transition: all var(--transition-fast);
 }
 
-/* ===== Select fix ===== */
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 25px rgba(0, 255, 135, 0.5);
+}
+
+/* ===== Professional Select Styling ===== */
 select {
-  background-color: rgba(10, 10, 15, 0.9) !important;
-  color: white !important;
+  background-color: var(--color-surface-overlay) !important;
+  color: var(--color-text-primary) !important;
   appearance: auto;
   -webkit-appearance: menulist;
   -moz-appearance: menulist;
+  border: 1px solid var(--border-default) !important;
 }
+
 select option {
-  background-color: #1a1a2e !important;
-  color: white !important;
+  background-color: var(--color-surface-elevated) !important;
+  color: var(--color-text-primary) !important;
 }
 
-/* ===== Leaflet map inside React ===== */
+/* ===== Map Container Styling ===== */
 .leaflet-container {
-  background: #1a1a2e;
+  background: var(--color-surface);
+  border: 1px solid var(--border-default);
 }
 
-/* ===== Button Visibility & Styling ===== */
+/* ===== Professional Button System ===== */
 button {
   font-weight: 600 !important;
   cursor: pointer !important;
-  transition: all 0.3s ease !important;
+  transition: all var(--transition-base) !important;
   position: relative !important;
   overflow: hidden !important;
   border: none !important;
@@ -89,56 +125,57 @@ button {
 }
 
 button:not([class*="bg-"]) {
-  background-color: rgba(100, 100, 100, 0.8) !important;
-  color: white !important;
+  background-color: var(--color-surface-elevated) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--border-default) !important;
 }
 
 button[class*="bg-gradient"]:hover {
-  box-shadow: 0 6px 25px rgba(0, 255, 135, 0.5) !important;
+  box-shadow: var(--glow-success) !important;
   transform: translateY(-2px) scale(1.02) !important;
 }
 
 button[class*="bg-green"],
 button[class*="from-green"],
 button[class*="from-emerald"] {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-  color: white !important;
+  background: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-dim) 100%) !important;
+  color: var(--color-background) !important;
 }
 
 button[class*="bg-red"] {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  background: linear-gradient(135deg, var(--color-danger) 0%, var(--color-danger-dim) 100%) !important;
   color: white !important;
 }
 
 button[class*="bg-purple"],
 button[class*="from-purple"] {
-  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%) !important;
+  background: linear-gradient(135deg, var(--color-investigation) 0%, var(--color-investigation-dim) 100%) !important;
   color: white !important;
 }
 
 button[class*="bg-blue"] {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-  color: white !important;
+  background: linear-gradient(135deg, var(--color-info) 0%, var(--color-info-dim) 100%) !important;
+  color: var(--color-background) !important;
 }
 
 button[class*="bg-orange"],
 button[class*="from-orange"] {
-  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
-  color: white !important;
+  background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-warning-dim) 100%) !important;
+  color: var(--color-background) !important;
 }
 
 button[class*="bg-gray"] {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
-  color: white !important;
+  background: linear-gradient(135deg, #4a4a4a 0%, #3a3a3a 100%) !important;
+  color: var(--color-text-primary) !important;
 }
 
 button[type="submit"] {
   min-height: 52px !important;
-  background: linear-gradient(135deg, #00ff87 0%, #00cc6f 100%) !important;
-  color: #0a0a0f !important;
+  background: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-dim) 100%) !important;
+  color: var(--color-background) !important;
   font-size: 18px !important;
   font-weight: 700 !important;
-  box-shadow: 0 6px 25px rgba(0, 255, 135, 0.4) !important;
+  box-shadow: var(--glow-success) !important;
 }
 
 button:disabled,
@@ -150,14 +187,15 @@ button[disabled] {
 }
 
 button:focus {
-  outline: 2px solid #00ff87 !important;
+  outline: 2px solid var(--color-success) !important;
   outline-offset: 2px !important;
 }
+
 button:focus:not(:focus-visible) {
   outline: none !important;
 }
 
-/* Ripple */
+/* ===== Ripple Effect ===== */
 button::before {
   content: '';
   position: absolute;
@@ -166,36 +204,234 @@ button::before {
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
   transform: translate(-50%, -50%);
   transition: width 0.6s, height 0.6s;
 }
+
 button:active::before {
   width: 300px;
   height: 300px;
 }
 
+/* ===== View Button ===== */
 .view-button {
   min-height: 44px !important;
   padding: 10px 20px !important;
-  background: rgba(100, 100, 100, 0.2) !important;
-  color: white !important;
-  border: 2px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 10px !important;
+  background: var(--color-surface-elevated) !important;
+  color: var(--color-text-primary) !important;
+  border: 2px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
   font-weight: 600 !important;
+  transition: all var(--transition-base) !important;
 }
 
 .view-button.active {
-  background: linear-gradient(135deg, rgba(0, 255, 135, 0.3) 0%, rgba(0, 204, 111, 0.3) 100%) !important;
-  border-color: #00ff87 !important;
-  color: #00ff87 !important;
-  box-shadow: 0 4px 20px rgba(0, 255, 135, 0.4) !important;
+  background: var(--color-success-bg) !important;
+  border-color: var(--color-success) !important;
+  color: var(--color-success) !important;
+  box-shadow: var(--glow-success) !important;
 }
 
+.view-button:hover {
+  border-color: var(--border-medium) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ===== Responsive Design ===== */
 @media (max-width: 768px) {
   button {
     min-height: 44px !important;
     padding: 10px 16px !important;
     font-size: 14px !important;
+  }
+}
+
+/* ===== Professional Focus States ===== */
+*:focus-visible {
+  outline: 2px solid var(--color-success) !important;
+  outline-offset: 2px !important;
+}
+
+/* ===== Loading States ===== */
+.skeleton-loader {
+  background: linear-gradient(90deg,
+    var(--color-surface) 0%,
+    var(--color-surface-elevated) 50%,
+    var(--color-surface) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+  border-radius: var(--radius-md);
+}
+
+/* ===== Professional Status Indicators ===== */
+.status-online {
+  color: var(--color-success);
+  text-shadow: 0 0 10px rgba(0, 255, 135, 0.3);
+}
+
+.status-offline {
+  color: var(--color-danger);
+  text-shadow: 0 0 10px rgba(255, 59, 59, 0.3);
+}
+
+.status-warning {
+  color: var(--color-warning);
+  text-shadow: 0 0 10px rgba(255, 184, 0, 0.3);
+}
+
+/* ===== Professional Card Hover Effects ===== */
+.cyber-card-hover {
+  transition: all var(--transition-base);
+}
+
+.cyber-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ===== Investigation Focus Styles ===== */
+.investigation-highlight {
+  border-left: 3px solid var(--color-investigation);
+  background: var(--color-investigation-bg);
+}
+
+.priority-critical {
+  color: var(--color-danger);
+  text-shadow: 0 0 8px rgba(255, 59, 59, 0.4);
+}
+
+.priority-high {
+  color: #FF6B6B;
+}
+
+.priority-medium {
+  color: var(--color-warning);
+}
+
+.priority-low {
+  color: var(--color-info);
+}
+
+/* ===== Professional Animations ===== */
+.fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.6s ease-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* ===== Data Display Enhancements ===== */
+.data-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+}
+
+.data-label {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+}
+
+/* ===== Professional Borders ===== */
+.border-subtle {
+  border: 1px solid var(--border-subtle);
+}
+
+.border-default {
+  border: 1px solid var(--border-default);
+}
+
+.border-medium {
+  border: 1px solid var(--border-medium);
+}
+
+.border-strong {
+  border: 1px solid var(--border-strong);
+}
+
+/* ===== Professional Backgrounds ===== */
+.bg-cyber-surface {
+  background: var(--color-surface);
+}
+
+.bg-cyber-elevated {
+  background: var(--color-surface-elevated);
+}
+
+.bg-cyber-overlay {
+  background: var(--color-surface-overlay);
+}
+
+/* ===== Text Utilities ===== */
+.text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-tertiary {
+  color: var(--color-text-tertiary);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+/* ===== Live Updates ===== */
+.live-update {
+  animation: subtlePulse 2s ease-in-out infinite;
+}
+
+/* ===== Professional Glow Effects ===== */
+.glow-success {
+  box-shadow: var(--glow-success);
+}
+
+.glow-danger {
+  box-shadow: var(--glow-danger);
+}
+
+.glow-warning {
+  box-shadow: var(--glow-warning);
+}
+
+.glow-investigation {
+  box-shadow: var(--glow-investigation);
+}
+
+/* ===== Accessibility ===== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ===== Professional Print Styles ===== */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .cyber-card {
+    border: 1px solid #ccc;
+    box-shadow: none;
   }
 }

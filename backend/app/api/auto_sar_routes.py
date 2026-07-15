@@ -13,8 +13,8 @@ _report_generator = None
 
 
 def list_investigation_cases(limit: int = 100) -> list[Dict[str, Any]]:
-    from auto_sar.case_report_service import CaseReportService
-    from auto_sar.investigation_analyzer import InvestigationAnalyzer
+    from ..services.auto_sar.case_report_service import CaseReportService
+    from ..services.auto_sar.investigation_analyzer import InvestigationAnalyzer
 
     return CaseReportService(InvestigationAnalyzer()).list_cases(limit=limit)
 
@@ -24,7 +24,7 @@ def get_report_generator():
     global _report_generator
     if _report_generator is None:
         try:
-            from auto_sar.report_generator import report_generator
+            from ..services.auto_sar.report_generator import report_generator
         except ImportError as exc:
             raise HTTPException(
                 status_code=503,

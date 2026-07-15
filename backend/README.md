@@ -1,372 +1,187 @@
-# Trinetra Mule Detection Backend API
+# Backend Service - Trinetra Mule Detection System
 
-FastAPI-based backend for mule detection with ML model integration and Supabase database synchronization.
+## Overview
+FastAPI-based backend service for fraud detection with ML model integration, real-time SHAP explainability, and comprehensive reporting capabilities.
 
-## Features
-
-- **ML Predictions**: LightGBM, GNN, and Ensemble models for mule score prediction
-- **Feature Engineering**: Automated feature extraction from raw transaction data
-- **Database Sync**: Real-time synchronization with Supabase database
-- **Batch Processing**: Process multiple accounts simultaneously
-- **RESTful API**: Comprehensive endpoints for all operations
-- **Health Monitoring**: Built-in health checks and status endpoints
-
-## Project Structure
+## Directory Structure
 
 ```
 backend/
-├── app/
-│   ├── api/
-│   │   ├── health_routes.py      # Health check endpoints
-│   │   ├── ml_routes.py          # ML prediction endpoints
-│   │   └── db_routes.py          # Database sync endpoints
-│   ├── services/
-│   │   ├── feature_engineering.py  # Feature extraction pipeline
-│   │   └── ml_models.py            # LightGBM, GNN, Ensemble models
-│   ├── schemas.py                # Pydantic models
-│   ├── database.py               # Supabase connection
-│   └── main.py                   # FastAPI application
-├── ml_results/                   # ML model outputs
-│   ├── feature_engineering/      # Engineered features
-│   ├── lgbm/                     # LightGBM predictions
-│   ├── gnn/                      # GNN predictions
-│   └── ensemble/                 # Ensemble predictions
-├── logs/                         # Application logs
-├── requirements.txt              # Python dependencies
-├── .env.example                  # Environment variables template
-└── README.md                     # This file
+├── app/                    # Core application modules
+│   ├── api/               # API route handlers
+│   ├── services/          # Business logic services  
+│   ├── models/            # ML models and artifacts
+│   ├── schemas/           # Pydantic schemas
+│   ├── utils/             # Utility functions
+│   ├── validators/        # Data validators
+│   ├── data/              # Data access layer
+│   ├── hydra/             # Hydra configuration
+│   ├── ml/                # ML pipeline components
+│   ├── database.py        # Database configuration
+│   ├── main.py            # FastAPI application entry point
+│   └── schemas*.py        # Request/response schemas
+├── docs/                  # Backend documentation
+├── tests/                 # Test files
+├── scripts/               # Runtime scripts (run.sh, run.bat)
+├── reports/               # Generated reports (PDF, JSON)
+│   ├── generated/         # Auto-generated SAR and network reports
+│   ├── templates/         # Report templates
+│   └── assets/           # Report assets (images, styles)
+├── temp-data/            # Runtime temporary data
+├── logs/                 # Application logs
+├── archive/              # Archived ML results and artifacts
+├── docker-compose.yml    # Docker configuration
+├── Dockerfile           # Container image definition
+└── requirements.txt     # Python dependencies (moved to docs)
 ```
 
-## Quick Start
+## Key Components
 
-Get the API running in 3 steps:
+### API Routes (`app/api/`)
+- **Health & Monitoring**: System health endpoints
+- **ML Models**: Model command center and prediction endpoints  
+- **Ingestion**: Data ingestion and validation endpoints
+- **Database**: Database operations endpoints
+- **Authentication**: Security and auth endpoints
 
+### Services (`app/services/`)
+- **ML Models**: LightGBM, GNN, Ensemble predictors
+- **SHAP**: Model explainability service
+- **Auto SAR**: Suspicious Activity Report generation
+- **Feature Engineering**: Feature extraction and pipeline
+- **GAN Training**: Generative Adversarial Network training
+- **Ingestion**: Data ingestion orchestration
+- **Validation**: Data validation services
+- **Storage**: File and data storage management
+
+### ML Models (`app/models/`)
+- **Runtime Models**: 
+  - `lgbm_fold1.txt` - LightGBM trained model
+  - `lightgbm_model.pkl` - LightGBM runtime artifact
+  - `gnn_model.pkl` - GNN runtime artifact  
+  - `ensemble_model.pkl` - Ensemble runtime artifact
+  - `model_commander_center.json` - Model configuration
+
+### Reports System
+- **SAR Reports**: Suspicious Activity Report generation
+- **Network Analysis**: Account network analysis reports
+- **Model Reports**: ML model performance and comparison
+- **SHAP Reports**: Feature contribution analysis reports
+
+## Development Setup
+
+### Local Development
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+# Using the project startup script
+cd ..
+./start-dev.sh
 
-# 2. Generate sample data for testing
-python -m scripts.generate_sample_data
-
-# 3. Run the server
+# Manual backend startup
+cd backend
+python3 -m venv venv
+source venv/bin/activate  
+pip install -r ../docs/backend_docs/requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Then visit [http://localhost:8000/docs](http://localhost:8000/docs) to explore the API.
-
-## Installation
-
-1. **Create virtual environment**:
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure environment**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Supabase credentials
-   ```
-
-4. **Generate sample data** (optional, for testing):
-   ```bash
-   python -m scripts.generate_sample_data
-   ```
-   This generates:
-   - `backend/data/transactions.csv` - 500 sample transactions with realistic Indian banking data
-   - `backend/data/account_features.csv` - 50 sample account risk profiles
-
-5. **Run the server**:
-   ```bash
-   python -m app.main
-   # or
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
+### Docker Development
+```bash
+cd backend
+docker-compose up
+```
 
 ## API Endpoints
 
 ### Health & Status
-- `GET /` - Root endpoint
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/status` - Detailed status
+- `GET /health` - System health check
+- `GET /api/status` - Detailed system status
 
-### ML Predictions
-- `POST /api/v1/ml/predict` - Single prediction
-- `POST /api/v1/ml/predict-batch` - Batch predictions
-- `POST /api/v1/ml/predict-and-save` - Predict and save to DB
-- `GET /api/v1/ml/model-info` - Model information
+### Model Operations  
+- `POST /api/models/predict` - Single account prediction
+- `POST /api/models/batch-predict` - Batch predictions
+- `GET /api/models/stats` - Model statistics
 
-### Feature Engineering
-- `POST /api/v1/ml/feature-engineering` - Engineer features from raw data
-- `GET /api/v1/ml/features/{account_id}` - Get engineered features
+### SHAP Explainability
+- `POST /api/models/explain` - Generate SHAP explanation
+- `POST /api/models/report` - Comprehensive model report
+- `GET /api/models/explain/lgbm/{id}` - LightGBM explanation
+- `GET /api/models/explain/gnn/{id}` - GNN explanation
 
-### Database Operations
-- `GET /api/v1/db/accounts` - List accounts
-- `GET /api/v1/db/accounts/{account_id}` - Get account
-- `POST /api/v1/db/accounts` - Create account
-- `PUT /api/v1/db/accounts/{account_id}` - Update account
-- `GET /api/v1/db/account-features/{account_id}` - Get features
-- `POST /api/v1/db/account-features` - Save features
-- `POST /api/v1/db/account-features/batch` - Batch save features
-- `GET /api/v1/db/alerts` - List alerts
-- `POST /api/v1/db/alerts` - Create alert
-- `GET /api/v1/db/sar-reports` - List SAR reports
-- `POST /api/v1/db/sar-reports` - Create SAR report
-- `GET /api/v1/db/sync-status` - Sync status
+### SAR Reports
+- `POST /api/reports/sar` - Generate SAR report
+- `GET /api/reports/status/{account_id}` - Report status
 
-## Usage Examples
+## Data Flow
 
-### 1. Single Prediction
+1. **Input**: Transaction data via API endpoints
+2. **Validation**: Data validation and feature extraction
+3. **Prediction**: ML model ensemble scoring
+4. **Explainability**: SHAP analysis and feature contributions
+5. **Reporting**: Automated report generation
+6. **Storage**: Results and reports persisted
+
+## Configuration
+
+### Environment Variables (`.env`)
+- Database connections
+- API credentials
+- Model paths
+- Logging configuration
+
+### Model Configuration
+- Model paths configured in `app/services/ml_models.py`
+- Ensemble weights in runtime artifacts
+- Feature names from trained models
+
+## Logging
+
+- **Application Logs**: `logs/auto_sar.log`
+- **Pipeline Logs**: `logs/pipeline.log`
+- **Ingestion Logs**: `logs/ingestion.log`
+- **Hydra Logs**: `logs/auto_sar_hydra.log`
+
+## Testing
+
+Tests are located in `tests/` directory:
 ```bash
-curl -X POST "http://localhost:8000/api/v1/ml/predict" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "account_id": "ACC123",
-    "features": {
-      "is_frozen": 0,
-      "unique_counterparties": 15,
-      "monthly_cv": 0.45,
-      "structuring_40k_50k_pct": 0.25,
-      "pct_within_6h": 0.30,
-      "ch_ntd_pct": 0.40,
-      "ch_atw_pct": 0.35,
-      "ch_chq_pct": 0.25,
-      "avg_txn_amount": 45000.50,
-      "sender_concentration": 0.65,
-      "mobile_spike_ratio": 2.5,
-      "days_since_kyc": 45,
-      "fan_in_ratio": 0.55,
-      "amt_exact_50k_pct": 0.10,
-      "avg_balance_negative": 0,
-      "kyc_doc_count": 3,
-      "kyc_non_compliant": 0,
-      "account_age_days": 180,
-      "total_credit": 500000.00,
-      "net_flow": -50000.00,
-      "credit_debit_ratio": 0.85,
-      "mean_passthrough_hours": 2.5,
-      "channel_entropy": 1.2
-    }
-  }'
+cd backend
+python -m pytest tests/
 ```
 
-### 2. Feature Engineering
-```bash
-curl -X POST "http://localhost:8000/api/v1/ml/feature-engineering" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "account_id": "ACC123",
-    "raw_data": {
-      "account_age_days": 180,
-      "avg_balance": 50000,
-      "total_credit": 500000,
-      "total_debit": 550000,
-      "transactions": [],
-      "channels": [],
-      "counterparties": [],
-      "transaction_amounts": [],
-      "kyc_data": {}
-    }
-  }'
-```
+## Cleanup & Organization
 
-### 3. Predict and Save
-```bash
-curl -X POST "http://localhost:8000/api/v1/ml/predict-and-save" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "account_id": "ACC123",
-    "features": {
-      ...feature dictionary...
-    }
-  }'
-```
+### Archived Components
+- **ML Results**: Old training results moved to `archive/ml_results/`
+- **Documentation**: Backend docs consolidated in `docs/`
+- **Scripts**: Runtime scripts organized in `scripts/`
 
-### 4. Batch Predictions
-```bash
-curl -X POST "http://localhost:8000/api/v1/ml/predict-batch" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "accounts": [
-      {
-        "account_id": "ACC123",
-        "features": {...}
-      },
-      {
-        "account_id": "ACC456",
-        "features": {...}
-      }
-    ]
-  }'
-```
+### Removed Duplicates
+- Consolidated duplicate service directories
+- Removed redundant route directories  
+- Cleaned up temporary artifacts
 
-## ML Model Components
+## Dependencies
 
-### 1. LightGBM (60% weight)
-- Gradient boosting model trained on structured features
-- Focuses on transaction patterns and account behavior
-- Scores: 0-100
+Key dependencies include:
+- FastAPI & Uvicorn (web framework)
+- LightGBM & scikit-learn (ML models)
+- NetworkX (graph processing)
+- ReportLab (PDF generation)
+- Pandas & NumPy (data processing)
 
-### 2. GNN (Graph Neural Network) (40% weight)
-- Graph-based network analysis
-- Focuses on counterparty relationships and topology
-- Scores: 0-100
-
-### 3. Ensemble
-- Weighted combination: 60% LightGBM + 40% GNN
-- Final risk score: 0-100
-- Risk levels:
-  - LOW: 0-25
-  - MEDIUM: 25-50
-  - HIGH: 50-75
-  - CRITICAL: 75-100
-
-## ML Results Storage
-
-Results are automatically saved in the `ml_results/` directory:
-
-```
-ml_results/
-├── feature_engineering/
-│   └── {account_id}_features.json
-├── lgbm/
-│   └── {account_id}_prediction.json
-├── gnn/
-│   └── {account_id}_prediction.json
-└── ensemble/
-    └── {account_id}_ensemble.json
-```
-
-Each JSON file contains:
-- Account ID
-- Model version
-- Score/predictions
-- Timestamp
-- Features used
-
-## Database Integration
-
-### Tables Used
-- `accounts` - Account master data
-- `account_features` - Engineered features and model scores
-- `transactions` - Transaction details
-- `alerts` - Risk alerts
-- `sar_reports` - Suspicious Activity Reports
-- `audit_log` - Audit trail
-
-### Row-Level Security
-- Authenticated users can view accounts and features
-- Admins can upsert data
-- All operations are logged
-
-## Error Handling
-
-The API returns standard HTTP status codes:
-- `200` - Success
-- `400` - Bad request
-- `404` - Not found
-- `500` - Server error
-- `503` - Service unavailable
-
-Error responses include descriptive messages:
-```json
-{
-  "detail": "Feature engineering failed: <error details>"
-}
-```
-
-## Performance Considerations
-
-- Batch predictions are optimized for throughput
-- Feature engineering caches results
-- Database queries use efficient indexing
-- ML models run in-memory for speed
-
-## Security
-
-- CORS enabled for frontend access
-- Trusted host middleware
-- Supabase Row-Level Security (RLS) policies
-- Environment variables for sensitive data
-- No credentials in code
-
-## Development
-
-### Running with hot reload
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Running tests
-```bash
-pytest tests/ -v
-```
-
-### Checking code quality
-```bash
-flake8 app/
-black app/
-```
+See `docs/backend_docs/requirements.txt` for complete list.
 
 ## Deployment
 
-### Docker
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY app/ ./app/
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### Environment Setup for Production
+### Production Deployment
 ```bash
-cp .env.example .env
-# Edit .env with production credentials
-ENVIRONMENT=production
-DEBUG=false
-LOG_LEVEL=WARNING
+# Using Docker
+docker build -t trinetra-backend .
+docker run -p 8000:8000 trinetra-backend
+
+# Using scripts
+./scripts/run.sh
 ```
 
-## Troubleshooting
-
-### Supabase Connection Issues
-- Verify SUPABASE_URL and SUPABASE_KEY in .env
-- Check network connectivity
-- Ensure service role key has proper permissions
-
-### Model Loading Issues
-- Check that numpy, pandas, scikit-learn are installed
-- Verify LightGBM and PyTorch installation
-- Check available memory
-
-### Feature Engineering Issues
-- Ensure raw data has expected structure
-- Check for missing or null values
-- Verify data types in raw_data
-
-## Future Enhancements
-
-- [ ] Real GBM model loading from saved artifacts
-- [ ] Real GNN model with PyTorch Geometric
-- [ ] Model retraining pipeline
-- [ ] Advanced performance metrics
-- [ ] Real-time streaming predictions
-- [ ] Model A/B testing framework
-- [ ] Advanced alerting system
-- [ ] Dashboard integration
-
-## Support
-
-For issues or questions, contact the development team.
-
-## License
-
-Proprietary - All rights reserved
+### Environment Configuration
+Ensure `.env` file is properly configured with production settings.

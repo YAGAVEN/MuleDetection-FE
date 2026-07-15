@@ -20,7 +20,7 @@ import torch
 
 # Add GAN framework to path
 import sys
-GAN_PATH = Path(__file__).parent.parent.parent.parent / "Mule-data" / "gan_training"
+GAN_PATH = Path(__file__).parent.parent.parent.parent / "Mule-data" / "models"
 if str(GAN_PATH) not in sys.path:
     sys.path.insert(0, str(GAN_PATH))
 
